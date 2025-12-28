@@ -6,7 +6,7 @@
 - **Model Type**: [Text Classification / Time Series / NER / etc.]
 - **Base Architecture**: [BERT / RoBERTa / T5 / etc.]
 - **Size**: [Parameters, Memory]
-- **License**: [MIT / Apache 2.0 / GPL / CC-BY / Other] 
+- **License**: [MIT / Apache 2.0 / GPL / CC-BY / Other - check commercial use and copyleft implications] 
 
 ## Relevance to HERMES_Quantum
 - **Primary Agent**: [Which agent would use this - e.g., 22_psychology, 23_social, 24_politics, 25_market, 11_analyst]

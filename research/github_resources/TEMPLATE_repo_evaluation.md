@@ -7,7 +7,7 @@
 - **Forks**: 🔱 
 - **Last Updated**: 
 - **Created**: 
-- **License**: 
+- **License**: [MIT / Apache 2.0 / GPL / BSD / Other - check commercial use and compatibility with HERMES MIT license]
 - **Language**: 
 - **Size**: 
 
