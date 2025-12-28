@@ -1,0 +1,64 @@
+# HERMES_Quantum Watchlist Configuration
+# Quantum Computing Stocks for Analysis
+
+watchlist:
+  name: "Quantum Computing Stocks"
+  description: "Primary quantum computing companies for analysis"
+  updated: "2025-12-28"
+  
+  stocks:
+    - symbol: "QBTS"
+      name: "D-Wave Quantum Inc."
+      sector: "Technology"
+      industry: "Quantum Computing"
+      exchange: "NYSE"
+      notes: "Quantum annealing systems and cloud services"
+      
+    - symbol: "IONQ"
+      name: "IonQ Inc."
+      sector: "Technology"
+      industry: "Quantum Computing"
+      exchange: "NYSE"
+      notes: "Trapped ion quantum computing"
+      
+    - symbol: "RGTI"
+      name: "Rigetti Computing Inc."
+      sector: "Technology"
+      industry: "Quantum Computing"
+      exchange: "NASDAQ"
+      notes: "Superconducting quantum processors"
+      
+    - symbol: "QUBT"
+      name: "Quantum Computing Inc."
+      sector: "Technology"
+      industry: "Quantum Computing"
+      exchange: "NASDAQ"
+      notes: "Quantum computing hardware and software solutions"
+
+analysis_settings:
+  # Data collection settings
+  data_sources:
+    - "financial_statements"
+    - "market_data"
+    - "news_sentiment"
+    - "social_media"
+    - "insider_trading"
+    - "analyst_ratings"
+  
+  # Time windows for analysis
+  time_windows:
+    short_term: "1M"
+    medium_term: "3M"
+    long_term: "1Y"
+  
+  # Agent coordination settings
+  orchestration:
+    enable_parallel_analysis: true
+    aggregate_insights: true
+    conflict_resolution: "weighted_consensus"
+  
+  # Output preferences
+  output:
+    format: ["json", "report"]
+    visualization: true
+    save_to_database: true
