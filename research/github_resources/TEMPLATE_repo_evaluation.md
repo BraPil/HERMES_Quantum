@@ -187,6 +187,11 @@ If we decide to integrate:
 |------------|---------|---------|------------|-------|
 | | | | [Low/Med/High] | |
 
+**Risk Level Guidelines**:
+- **Low**: Well-maintained, popular dependency with stable API and compatible license
+- **Medium**: Less popular or older dependency, potential version conflicts, or restrictive license
+- **High**: Unmaintained, known vulnerabilities, incompatible license, or major version conflicts
+
 ### Dependency Concerns
 - Version conflicts: 
 - Unmaintained dependencies: 

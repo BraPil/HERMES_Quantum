@@ -39,8 +39,8 @@ exploration_progress:
       - "quantum computing stocks"
 
 # Current work focus
-current_focus: null
-current_category: null
+current_focus: "not_set"
+current_category: "not_set"
 
 # Immediate next actions
 next_actions:
