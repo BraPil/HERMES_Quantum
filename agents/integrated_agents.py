@@ -563,13 +563,14 @@ class IntegratedPortfolioAgent(BaseAgent):
     Aggregates signals from other agents and provides portfolio-level recommendations.
     """
     
-    def __init__(self):
+    def __init__(self, lazy_load: bool = True):
         super().__init__(
             agent_id="agent_11",
             signal_type="portfolio",
             name="Portfolio Agent",
             description="Aggregates signals and provides portfolio recommendations"
         )
+        self._lazy_load = lazy_load
     
     async def analyze(
         self,
