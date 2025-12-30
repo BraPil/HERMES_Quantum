@@ -1,0 +1,26 @@
+{
+  "name": "HERMES Quantum",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  
+  // Set idle timeout to 60 minutes (3600 seconds)
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "4gb",
+    "storage": "32gb"
+  },
+  
+  "customizations": {
+    "codespaces": {
+      "idleTimeout": "60m"
+    },
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      }
+    }
+  },
+  
+  "postCreateCommand": "pip install -e .",
+  
+  "features": {}
+}
