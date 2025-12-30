@@ -549,7 +549,7 @@ class MarketDataFetcher:
     def __init__(
         self,
         use_yahoo: bool = True,
-        use_alpha_vantage: bool = True,
+        use_alpha_vantage: bool = False,  # Disabled by default - Yahoo is faster and more current
         alpha_vantage_key: str = None,
         cache_path: str = None,
         cache_ttl_seconds: int = 60
@@ -559,7 +559,7 @@ class MarketDataFetcher:
         
         Args:
             use_yahoo: Enable Yahoo Finance
-            use_alpha_vantage: Enable Alpha Vantage
+            use_alpha_vantage: Enable Alpha Vantage (disabled by default - slower, rate limited)
             alpha_vantage_key: API key for Alpha Vantage
             cache_path: Path to SQLite cache
             cache_ttl_seconds: Quote cache TTL
