@@ -30,3 +30,4 @@ python-dotenv>=1.0.0
 # black>=23.7.0
 # ruff>=0.0.280
 # mypy>=1.4.1
+mlflow
