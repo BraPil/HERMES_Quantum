@@ -25,8 +25,11 @@ The market agent analyzes broader market conditions, sector trends, and competit
 ### 91_tools
 The tools agent provides utility functions and tools used by other agents. It includes data fetching, processing, and common helper functions.
 
+### 92_optimizer
+The optimizer agent continuously monitors, optimizes, and fine-tunes models used across all agents. It performs hyperparameter tuning, cross-validation, drift detection, and suggests model improvements for peak performance.
+
 ### 99_models
-The models agent manages machine learning models for predictions and classifications. It handles model training, inference, and performance monitoring.
+The models agent manages machine learning models for predictions and classifications. It handles model training, inference, deployment, and versioning.
 
 ## Agent Communication
 

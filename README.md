@@ -35,7 +35,8 @@ The system consists of specialized agents:
 5. **Politics Agent (24)** - Tracks regulations and political developments
 6. **Market Agent (25)** - Analyzes broader market conditions
 7. **Tools Agent (91)** - Provides utility functions and data fetching
-8. **Models Agent (99)** - Manages ML models for predictions
+8. **Optimizer Agent (92)** - Optimizes and fine-tunes all models continuously
+9. **Models Agent (99)** - Manages ML models for predictions
 
 ### Directory Structure
 
@@ -49,6 +50,7 @@ HERMES_Quantum/
 │   ├── 24_politics/
 │   ├── 25_market/
 │   ├── 91_tools/
+│   ├── 92_optimizer/
 │   └── 99_models/
 ├── tools/              # Utility functions and helpers
 ├── models/             # Machine learning models

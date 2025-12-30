@@ -3,66 +3,276 @@
 
 phase: 0
 phase_name: "Deep Learning from Open Sources"
-status: "in_progress"
+status: "complete"
 started: "2025-12-28"
-last_updated: "2025-12-28"
+last_updated: "2025-12-28T21:00:00"
+
+# Data source decisions
+data_sources:
+  strategy: "DIY-first (100% free for Weeks 1-4)"
+  total_monthly_savings: "$600+"
+  
+  approved_free:
+    - name: "yfinance"
+      type: "stock_data"
+      cost: "$0"
+      priority: "critical"
+    - name: "RSS Feeds"
+      type: "news"
+      cost: "$0"
+      priority: "critical"
+      replaces: "Benzinga ($500/mo)"
+    - name: "Reddit PRAW"
+      type: "social"
+      cost: "$0"
+      priority: "high"
+      notes: "Use PRAW to prevent bans"
+    - name: "StockTwits API"
+      type: "social"
+      cost: "$0"
+      priority: "high"
+      notes: "NOT Reddit - separate company"
+    - name: "SEC Edgar"
+      type: "filings"
+      cost: "$0"
+      priority: "high"
+    - name: "FRED"
+      type: "macro"
+      cost: "$0"
+      priority: "medium"
+  
+  rejected:
+    - name: "X API (Twitter)"
+      cost: "$100/mo"
+      reason: "333 posts/day limit, Reddit+StockTwits better"
+    - name: "Benzinga"
+      cost: "$500+/mo"
+      reason: "RSS feeds free and fast enough"
+  
+  deferred_to_phase2:
+    - name: "Unusual Whales"
+      cost: "$50/mo"
+      condition: "If options flow predictive"
+
+# Agent configuration
+agents:
+  count: 9
+  list:
+    - id: "01"
+      name: "orchestrator"
+      status: "designed"
+      priority: "critical"
+    - id: "11"
+      name: "analyst"
+      status: "designed"
+      priority: "high"
+    - id: "22"
+      name: "psychology"
+      status: "designed_with_model"
+      model: "ProsusAI/finbert"
+      priority: "high"
+    - id: "23"
+      name: "social"
+      status: "designed_with_model"
+      model: "StephanAkkerman/FinTwitBERT-sentiment"
+      priority: "high"
+    - id: "24"
+      name: "politics"
+      status: "designed_with_model"
+      model: "facebook/bart-large-mnli"
+      priority: "medium"
+    - id: "25"
+      name: "market"
+      status: "designed_with_model"
+      model: "amazon/chronos-t5-large"
+      priority: "high"
+    - id: "91"
+      name: "tools"
+      status: "designed"
+      priority: "high"
+    - id: "92"
+      name: "optimizer"
+      status: "designed"
+      priority: "high"
+      note: "Added 2025-12-28 - continuous model improvement"
+    - id: "99"
+      name: "models"
+      status: "designed"
+      priority: "high"
 
 # Progress tracking for exploration activities
 exploration_progress:
   huggingface_models:
-    status: "not_started"
-    models_documented: 0
+    status: "complete"
+    models_documented: 5
     target_categories:
       - financial_sentiment
       - time_series_forecasting
       - news_classification
       - social_media_analysis
     priority_models:
-      - "ProsusAI/finbert"
-      - "yiyanghkust/finbert-tone"
-      - "StephanAkkerman/FinTwitBERT-sentiment"
-      - "amazon/chronos-t5-large"
+      - "ProsusAI/finbert"  # EVALUATED - ADOPT
+      - "yiyanghkust/finbert-tone"  # EVALUATED - DEFER
+      - "StephanAkkerman/FinTwitBERT-sentiment"  # EVALUATED - ADOPT
+      - "amazon/chronos-t5-large"  # EVALUATED - ADOPT
+    evaluated_models:
+      - model_id: "ProsusAI/finbert"
+        status: "ADOPT"
+        target_agent: "22_psychology"
+        evaluation_doc: "huggingface_models/ProsusAI_finbert_evaluation.md"
+      - model_id: "yiyanghkust/finbert-tone"
+        status: "DEFER"
+        target_agent: "22_psychology (future - analyst reports)"
+        evaluation_doc: "huggingface_models/yiyanghkust_finbert-tone_evaluation.md"
+      - model_id: "StephanAkkerman/FinTwitBERT-sentiment"
+        status: "ADOPT"
+        target_agent: "23_social"
+        evaluation_doc: "huggingface_models/StephanAkkerman_FinTwitBERT-sentiment_evaluation.md"
+      - model_id: "amazon/chronos-t5-large"
+        status: "ADOPT"
+        target_agent: "25_market"
+        evaluation_doc: "huggingface_models/amazon_chronos-t5-large_evaluation.md"
+      - model_id: "facebook/bart-large-mnli"
+        status: "ADOPT"
+        target_agent: "24_politics"
+        evaluation_doc: "huggingface_models/facebook_bart-large-mnli_evaluation.md"
   
   github_resources:
-    status: "not_started"
-    repos_documented: 0
+    status: "complete"
+    repos_documented: 3
     target_categories:
       - trading_systems
       - agent_frameworks
-      - quantum_ml
-      - sentiment_pipelines
-    search_keywords:
-      - "financial-analysis"
-      - "trading-bot"
-      - "sentiment-analysis"
-      - "multi-agent"
-      - "quantum computing stocks"
+      - ml_quant_platforms
+      - tool_libraries
+    evaluated_repos:
+      - repo_id: "microsoft/qlib"
+        status: "ADOPT"
+        priority: "HIGH"
+        stars: "15.3K"
+        evaluation_doc: "github_resources/microsoft_qlib_evaluation.md"
+        value_rating: "9.5/10"
+        key_components:
+          - "DataHandler (all agents)"
+          - "OnlineManager (orchestrator)"
+          - "Recorder (99_models)"
+          - "RollingGen (25_market)"
+      - repo_id: "quantopian/zipline"
+        status: "ADOPT"
+        priority: "HIGH"
+        stars: "17.6K"
+        evaluation_doc: "github_resources/quantopian_zipline_evaluation.md"
+        value_rating: "9/10"
+        key_components:
+          - "EventManager (scheduling)"
+          - "Pipeline API (factor computation)"
+          - "Algorithm lifecycle pattern"
+          - "DataPortal (data abstraction)"
+      - repo_id: "awesome-quant + awesome-ai-in-finance"
+        status: "SYNTHESIZED"
+        priority: "MEDIUM"
+        evaluation_doc: "github_resources/awesome_resources_synthesis.md"
+        tool_categories:
+          - "Portfolio optimization (PyPortfolioOpt)"
+          - "Technical analysis (pandas_ta, TA-Lib)"
+          - "Risk analytics (empyrical-reloaded, pyfolio-reloaded)"
+          - "Factor analysis (alphalens-reloaded)"
+          - "Data sources (yfinance, Quandl)"
 
 # Current work focus
-current_focus: "not_set"
-current_category: "not_set"
+current_focus: "huggingface_models"
+current_category: "financial_sentiment"
 
 # Immediate next actions
 next_actions:
-  - "Begin systematic exploration of HuggingFace models starting with FinBERT variants"
-  - "Search GitHub for trading system repositories"
-  - "Document findings in EXPLORATION_LOG.md"
-  - "Create first model evaluation using template"
+  - "Evaluate yiyanghkust/finbert-tone (alternative FinBERT)"
+  - "Evaluate StephanAkkerman/FinTwitBERT-sentiment (for 23_social agent)"
+  - "Evaluate amazon/chronos-t5-large (for 25_market time series)"
+  - "Create notebook to test ProsusAI/finbert on quantum stock news"
 
 # Any blockers or issues
 blockers: []
 
 # Accumulated findings
 findings_summary:
-  key_models: []
-  key_repos: []
-  insights: []
-  agent_refinements_needed: []
+  key_models:
+    - id: "ProsusAI/finbert"
+      relevance: "Core sentiment model for 22_psychology agent"
+      downloads: "69.6M"
+      decision: "ADOPT"
+    - id: "yiyanghkust/finbert-tone"
+      relevance: "Specialized for analyst reports and earnings transcripts"
+      downloads: "49.4M"
+      decision: "DEFER (consider for Phase 2 analyst reports)"
+    - id: "StephanAkkerman/FinTwitBERT-sentiment"
+      relevance: "Social media sentiment (Twitter/StockTwits) for 23_social agent"
+      downloads: "497K"
+      decision: "ADOPT"
+    - id: "amazon/chronos-t5-large"
+      relevance: "Time series forecasting foundation model for 25_market agent"
+      downloads: "7.1M"
+      decision: "ADOPT"
+    - id: "facebook/bart-large-mnli"
+      relevance: "Zero-shot news classification for 24_politics agent"
+      downloads: "132.7M"
+      decision: "ADOPT"
+  key_repos:
+    - id: "microsoft/qlib"
+      relevance: "Full ML quant platform - data handling, model management, online trading"
+      stars: "15.3K"
+      decision: "ADOPT (9.5/10 value)"
+      key_findings:
+        - "DataHandler pattern for data_ingestion/"
+        - "OnlineManager for orchestrator coordination"
+        - "Recorder for experiment tracking (99_models)"
+        - "RollingGen for time series (25_market)"
+    - id: "quantopian/zipline"
+      relevance: "Event-driven backtesting framework with Pipeline API"
+      stars: "17.6K"
+      decision: "ADOPT (9/10 value)"
+      key_findings:
+        - "EventManager for agent scheduling"
+        - "Algorithm lifecycle pattern (initialize/handle_data)"
+        - "Pipeline API for declarative factor computation"
+        - "DataPortal for unified data access"
+    - id: "awesome-quant resources"
+      relevance: "Curated tools for portfolio, risk, TA, data"
+      count: "200+ tools"
+      decision: "SYNTHESIZED"
+      key_tools:
+        - "PyPortfolioOpt (portfolio optimization)"
+        - "pandas_ta (115+ technical indicators)"
+        - "empyrical-reloaded (risk metrics)"
+        - "alphalens-reloaded (factor validation)"
+        - "yfinance + Quandl (data sources)"
+  insights:
+    - "ProsusAI/finbert is industry standard with 69.6M downloads"
+    - "yiyanghkust/finbert-tone has massive 4.9B token pre-training, ideal for analyst reports"
+    - "Different FinBERT models have different label mappings - requires careful handling"
+    - "FinTwitBERT-sentiment is ONLY model trained on financial tweets (10M+1.47M tweets)"
+    - "FinTwitBERT handles emojis, $cashtags, informal language - perfect for 23_social"
+    - "Three complementary models: ProsusAI (news), yiyanghkust (analyst), FinTwitBERT (social)"
+    - "Chronos-T5-Large: First major foundation model for time series forecasting"
+    - "Chronos treats time series as language - breakthrough zero-shot forecasting"
+    - "Chronos-Bolt (v2) available: 5% lower error, 250x faster, 20x memory efficient"
+    - "BART-large-mnli: Zero-shot classification with 132.7M downloads - no training needed"
+    - "BART enables flexible news categorization - define categories at inference time"
+    - "Complete agent coverage: 22_psychology, 23_social, 24_politics, 25_market all have models"
+    - "mrm8488/distilroberta-finetuned-financial is faster alternative (82M params vs 110M)"
+  agent_refinements_needed:
+    - "22_psychology should use ProsusAI/finbert for formal financial news"
+    - "23_social should use FinTwitBERT-sentiment for Twitter/social media"
 
 # Decisions made
 decisions:
-  models_to_adopt: []
-  models_to_defer: []
+  models_to_adopt:
+    - model_id: "ProsusAI/finbert"
+      target_agent: "22_psychology"
+      rationale: "Industry standard, 69.6M downloads, domain-specific training"
+  models_to_defer:
+    - model_id: "yiyanghkust/finbert-tone"
+      target_agent: "22_psychology (future)"
+      rationale: "Excellent for analyst reports but ProsusAI better for news. Consider Phase 2+"
   models_rejected: []
   repos_to_integrate: []
   repos_to_learn_from: []
@@ -70,7 +280,7 @@ decisions:
 
 # Completion tracking
 completion_metrics:
-  models_evaluated: 0
+  models_evaluated: 5
   models_tested: 0
   repos_analyzed: 0
   notebooks_created: 0

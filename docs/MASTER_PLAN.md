@@ -38,8 +38,9 @@ Primary focus on emerging pure-play quantum computing companies:
       │   11_ANALYST    │           │  Feedback Loop  │
       │   (Agent 11)    │           │                 │
       │   Weighted      │           │   91_TOOLS      │
-      │  Suggestions    │           │   99_MODELS     │
-      └────────┬────────┘           └─────────────────┘
+      │  Suggestions    │           │   92_OPTIMIZER  │
+      └────────┬────────┘           │   99_MODELS     │
+               │                     └─────────────────┘
                │                             ▲
                │                             │
       ┌────────┴────────┐                   │
@@ -242,6 +243,42 @@ Primary focus on emerging pure-play quantum computing companies:
 - Identify common needs
 - Automate repetitive tasks
 - Improve tool efficiency
+
+#### 92 - Optimizer (Model Optimization & Tuning)
+**Role**: Continuous model improvement and performance optimization
+
+**Responsibilities**:
+- Monitor model performance and detect drift
+- Perform hyperparameter optimization (Optuna, Ray Tune)
+- Execute cross-validation strategies (time series-aware)
+- Fine-tune models on domain-specific data
+- Suggest alternative models (AutoML)
+- A/B test model variants
+- Track experiment metrics (W&B, MLflow)
+
+**Scope**:
+- Agent 22 (finbert sentiment model)
+- Agent 23 (FinTwitBERT social sentiment)
+- Agent 24 (BART zero-shot classifier)
+- Agent 25 (Chronos time series forecaster)
+
+**Workflows**:
+- Daily: Performance monitoring and drift detection
+- Weekly: Hyperparameter optimization
+- Monthly: Fine-tuning on recent data
+- On-demand: Triggered by performance alerts
+
+**Technologies**:
+- Optuna (hyperparameter optimization)
+- Ray Tune (distributed tuning)
+- scikit-learn + mlfinlab (cross-validation)
+- HuggingFace Transformers (fine-tuning)
+- PEFT/LoRA (parameter-efficient tuning)
+
+**Integration**:
+- Works closely with Agent 99 (model registry)
+- Reports to Agent 01 (orchestrator) on optimization results
+- Improves models for Agents 22-25
 
 #### 99 - Models (Model Management)
 **Role**: ML model lifecycle management
