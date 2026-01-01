@@ -78,13 +78,15 @@ def test_qbts_trade():
         
         quantity = 10  # Small test order
         
-        # Use market order with GTC (Good Till Cancelled)
-        # GTC orders persist even when market is closed
-        order = MarketOrder('BUY', quantity)
-        order.tif = 'GTC'  # Good Till Cancelled (persists after market close)
-        order.outsideRth = True  # Allow outside regular trading hours
+        # Use LIMIT order with GTC (Good Till Cancelled)
+        # Market orders aren't allowed outside trading hours
+        # Set limit price high enough to fill at market open
+        limit_price = 10.00  # QBTS typically trades around $6-8, this ensures fill
         
-        print(f"\n📝 Submitting order: BUY {quantity} QBTS @ MARKET (GTC)")
+        order = LimitOrder('BUY', quantity, limit_price)
+        order.tif = 'GTC'  # Good Till Cancelled (persists after market close)
+        
+        print(f"\n📝 Submitting order: BUY {quantity} QBTS @ LIMIT ${limit_price:.2f} (GTC)")
         
         # Place the order
         trade = ib.placeOrder(qbts, order)
