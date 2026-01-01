@@ -1,11 +1,27 @@
-# HERMES_Quantum Phase 0 State Tracking
-# Machine-readable progress tracking for research exploration
+# HERMES_Quantum Project State Tracking
+# Machine-readable progress tracking for development
 
-phase: 0
-phase_name: "Deep Learning from Open Sources"
+# Current version info
+version: "0.2.0"
+version_name: "Dashboard UX Refinement"
+version_status: "released"
+version_date: "2026-01-01"
+
+# Phase tracking
+phase: 0.2
+phase_name: "Dashboard UX Refinement"
 status: "complete"
 started: "2025-12-28"
-last_updated: "2025-12-28T21:00:00"
+last_updated: "2026-01-01T23:45:00"
+
+# Next version
+next_version: "0.3.0"
+next_version_name: "Agent Integration"
+next_version_focus:
+  - "Sentiment agent integration (22, 23)"
+  - "Persistence layer (SQLite)"
+  - "Event bus architecture"
+  - "Error boundaries and logging"
 
 # Data source decisions
 data_sources:
@@ -17,11 +33,13 @@ data_sources:
       type: "stock_data"
       cost: "$0"
       priority: "critical"
+      status: "active"
     - name: "RSS Feeds"
       type: "news"
       cost: "$0"
       priority: "critical"
       replaces: "Benzinga ($500/mo)"
+      status: "planned_v0.3"
     - name: "Reddit PRAW"
       type: "social"
       cost: "$0"

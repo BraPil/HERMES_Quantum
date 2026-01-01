@@ -247,28 +247,31 @@ def check_cross_symbol_alerts(watchlist: list) -> list:
 
 # Lookback period mapping: fetch extra data for indicator warmup
 LOOKBACK_PERIODS = {
-    "5d": "1mo",    # Fetch 1 month for indicator warmup on 5-day hourly
-    "1mo": "3mo",   # Fetch 3 months to have 50+ days for SMA50
-    "3mo": "6mo",   # Fetch 6 months
-    "6mo": "1y",    # Fetch 1 year
+    "1hr": "5d",    # Fetch 5 days for 1-hour view (1-minute bars)
+    "1d": "1mo",    # Fetch 1 month for 1-day view (5-minute bars)
+    "1w": "3mo",    # Fetch 3 months for 1-week view (hourly bars)
+    "1mo": "6mo",   # Fetch 6 months to have 100+ days for SMA50 warmup
+    "3mo": "1y",    # Fetch 1 year for 3-month view
     "1y": "2y",     # Fetch 2 years
 }
 
 # Display bars for each period
 DISPLAY_BARS = {
-    "5d": 40,       # ~5 trading days of hourly bars (8 hours * 5 days = 40)
+    "1hr": 60,      # Last 60 trading minutes (1-minute bars)
+    "1d": 78,       # ~1 trading day in 5-minute bars (6.5 hours * 12 = 78)
+    "1w": 45,       # ~1 week of hourly bars (6.5 hours * 7 days = ~45)
     "1mo": 22,      # ~1 month of trading days
     "3mo": 65,      # ~3 months
-    "6mo": 130,     # ~6 months
     "1y": 252,      # ~1 year
 }
 
 # Interval for each period
 PERIOD_INTERVALS = {
-    "5d": Interval.HOUR_1,
+    "1hr": Interval.MINUTE_1,   # 1-minute bars for 1-hour view
+    "1d": Interval.MINUTE_5,    # 5-minute bars for 1-day view
+    "1w": Interval.HOUR_1,      # Hourly bars for 1-week view
     "1mo": Interval.DAY_1,
     "3mo": Interval.DAY_1,
-    "6mo": Interval.DAY_1,
     "1y": Interval.DAY_1,
 }
 
@@ -312,10 +315,18 @@ def run_technical_analysis(symbol: str, df: pd.DataFrame):
 
 def render_sidebar():
     """Render sidebar with stock selection and controls"""
+    import pytz
+    
     with st.sidebar:
-        # Clean header - no external image
+        # Dashboard title and branding
         st.markdown("### 🔮 HERMES")
-        st.caption("Quantum Trading")
+        st.markdown("**Quantum Trading Dashboard**")
+        
+        # Live timestamp in NYC time
+        nyc_tz = pytz.timezone('America/New_York')
+        nyc_time = datetime.now(nyc_tz)
+        st.markdown(f"#### ⏱️ `{nyc_time.strftime('%H:%M:%S')}` ET")
+        st.caption("Live data - refreshing every 5s")
         
         st.divider()
         
@@ -342,15 +353,11 @@ def render_sidebar():
         
         data_period = st.selectbox(
             "Period",
-            ["5d", "1mo", "3mo", "6mo", "1y"],
-            index=3,  # Default to 6mo
+            ["1hr", "1d", "1w", "1mo", "3mo", "1y"],
+            index=3,  # Default to 1mo
+            format_func=lambda x: {"1hr": "1 Hour", "1d": "1 Day", "1w": "1 Week", "1mo": "1 Month", "3mo": "3 Months", "1y": "1 Year"}.get(x, x),
             label_visibility="collapsed"
         )
-        
-        st.divider()
-        
-        # Status - compact
-        st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
         
         return selected_symbol, data_period, False
 
@@ -525,212 +532,196 @@ def render_signals_panel(symbol: str, ta_result: TechnicalAnalysisResult):
 # Component 2: Stock Ticker Info
 # ============================================================================
 
-def render_ticker_info(symbol: str, quote, info):
-    """Render stock ticker information - UX Section 2: Grid layout with Current Price prominent"""
-    st.subheader(f"📈 {symbol} - {info.name if info else symbol}")
-    
-    # Price and change
+def render_fixed_price_banner(symbol: str, quote, info):
+    """Render a fixed price banner that stays at top-right corner while scrolling"""
     price = quote.price if quote else 0
     change = quote.change if quote else 0
     change_pct = quote.change_percent if quote else 0
     
-    # Grid layout: Current Price (larger) | 2x2 grid of other metrics
-    price_col, metrics_col = st.columns([1, 2])
+    color = "#00C853" if change >= 0 else "#FF5252"
+    arrow = "▲" if change >= 0 else "▼"
     
-    with price_col:
-        # Prominent Current Price with color coding
-        color = "#00C853" if change >= 0 else "#FF5252"
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                    border-radius: 12px; padding: 20px; text-align: center;
-                    border: 2px solid {color};">
-            <div style="color: #888; font-size: 14px;">Current Price</div>
-            <div style="color: white; font-size: 36px; font-weight: bold;">${price:.2f}</div>
-            <div style="color: {color}; font-size: 18px;">{change:+.2f} ({change_pct:+.2f}%)</div>
+    # Fixed position banner in top-right corner - uses CSS position: fixed
+    st.markdown(f"""
+    <style>
+        .fixed-price-banner {{
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            z-index: 9999;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid {color};
+            border-radius: 12px;
+            padding: 12px 18px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            min-width: 180px;
+        }}
+    </style>
+    <div class="fixed-price-banner">
+        <div style="font-size: 14px; color: #888; margin-bottom: 4px;">📈 {symbol}</div>
+        <div style="font-size: 28px; font-weight: bold; color: white;">${price:.2f}</div>
+        <div style="color: {color}; font-size: 14px;">
+            {arrow} {change:+.2f} ({change_pct:+.2f}%)
         </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def render_ticker_info(symbol: str, quote, info):
+    """Render stock ticker information - metrics only (price is in fixed banner)"""
+    st.subheader(f"📈 {symbol} - {info.name if info else symbol}")
     
-    with metrics_col:
-        # 2x2 grid for other metrics
-        row1_col1, row1_col2 = st.columns(2)
-        row2_col1, row2_col2 = st.columns(2)
-        
-        with row1_col1:
-            st.metric(
-                label="Day High",
-                value=f"${quote.high:.2f}" if quote else "N/A"
-            )
-        
-        with row1_col2:
-            st.metric(
-                label="Day Low",
-                value=f"${quote.low:.2f}" if quote else "N/A"
-            )
-        
-        with row2_col1:
-            st.metric(
-                label="Volume",
-                value=f"{quote.volume:,.0f}" if quote else "N/A"
-            )
-        
-        with row2_col2:
-            market_cap = info.market_cap if info else 0
-            if market_cap >= 1e9:
-                cap_str = f"${market_cap/1e9:.2f}B"
-            elif market_cap >= 1e6:
-                cap_str = f"${market_cap/1e6:.2f}M"
-            else:
-                cap_str = f"${market_cap:,.0f}"
-            st.metric(label="Market Cap", value=cap_str)
+    # Metrics in a single row (price is already in the fixed banner)
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            label="Day High",
+            value=f"${quote.high:.2f}" if quote else "N/A"
+        )
+    
+    with col2:
+        st.metric(
+            label="Day Low",
+            value=f"${quote.low:.2f}" if quote else "N/A"
+        )
+    
+    with col3:
+        st.metric(
+            label="Volume",
+            value=f"{quote.volume:,.0f}" if quote else "N/A"
+        )
+    
+    with col4:
+        market_cap = info.market_cap if info else 0
+        if market_cap >= 1e9:
+            cap_str = f"${market_cap/1e9:.2f}B"
+        elif market_cap >= 1e6:
+            cap_str = f"${market_cap/1e6:.2f}M"
+        else:
+            cap_str = f"${market_cap:,.0f}"
+        st.metric(label="Market Cap", value=cap_str)
 
 
 # ============================================================================
 # Component 3: Limit Order Recommendations
 # ============================================================================
 
-def render_limit_orders(ta_result: TechnicalAnalysisResult):
-    """Render limit order recommendations - UX Section 3 with multi-timeframe targets"""
+def render_limit_orders(ta_result: TechnicalAnalysisResult, selected_period: str):
+    """Render limit order recommendations - uses sidebar period selector"""
     st.subheader("💰 Limit Order Recommendations")
     
-    # Timeframe tabs
-    timeframes = ["1hr", "1day", "1week", "1month"]
-    timeframe_labels = {"1hr": "⏱️ 1 Hour", "1day": "📅 1 Day", "1week": "📆 1 Week", "1month": "🗓️ 1 Month"}
+    # Map sidebar period to timeframe key
+    period_to_timeframe = {
+        "1hr": "1hr",
+        "1d": "1day", 
+        "1w": "1week",
+        "1mo": "1month",
+        "3mo": "1month",  # Use 1month recs for longer periods
+        "1y": "1month",
+    }
     
-    tabs = st.tabs([timeframe_labels[tf] for tf in timeframes])
+    tf = period_to_timeframe.get(selected_period, "1day")
+    period_label = {"1hr": "1 Hour", "1d": "1 Day", "1w": "1 Week", "1mo": "1 Month", "3mo": "3 Months", "1y": "1 Year"}.get(selected_period, selected_period)
     
-    for i, tf in enumerate(timeframes):
-        with tabs[i]:
-            # Get recommendations for this timeframe
-            if hasattr(ta_result, 'timeframe_recommendations') and ta_result.timeframe_recommendations:
-                tf_recs = ta_result.timeframe_recommendations.get(tf, ([], []))
-                buy_recs, sell_recs = tf_recs
-            else:
-                buy_recs, sell_recs = [], []
-            
-            col1, col2 = st.columns(2)
-            
-            # BUY recommendations
-            with col1:
-                st.markdown("### 🟢 BUY Targets")
+    st.caption(f"📊 Recommendations for {period_label} timeframe")
+    
+    # Get recommendations for this timeframe
+    if hasattr(ta_result, 'timeframe_recommendations') and ta_result.timeframe_recommendations:
+        tf_recs = ta_result.timeframe_recommendations.get(tf, ([], []))
+        buy_recs, sell_recs = tf_recs
+    else:
+        buy_recs, sell_recs = [], []
+    
+    col1, col2 = st.columns(2)
+    
+    # BUY recommendations
+    with col1:
+        st.markdown("### 🟢 BUY Targets")
+        
+        if buy_recs:
+            for rec in buy_recs[:2]:
+                # Ensure positive return for buys
+                expected_return = ((rec.target_price - rec.entry_price) / rec.entry_price) * 100
+                risk_reward = abs(rec.target_price - rec.entry_price) / max(abs(rec.entry_price - rec.stop_loss), 0.01)
                 
-                if buy_recs:
-                    for rec in buy_recs[:2]:
-                        # Ensure positive return for buys
-                        expected_return = ((rec.target_price - rec.entry_price) / rec.entry_price) * 100
-                        risk_reward = abs(rec.target_price - rec.entry_price) / max(abs(rec.entry_price - rec.stop_loss), 0.01)
-                        
-                        # Build extended description
-                        desc_lines = [rec.reasoning]
-                        if "support" in rec.reasoning.lower():
-                            desc_lines.append(f"This level has historically acted as a floor where buyers step in.")
-                            desc_lines.append(f"Setting a limit order here allows you to catch a potential bounce.")
-                        elif "bollinger" in rec.reasoning.lower():
-                            desc_lines.append(f"Price touching the lower Bollinger band often signals oversold conditions.")
-                            desc_lines.append(f"Mean reversion to the middle band is a common follow-through.")
-                        elif "sma" in rec.reasoning.lower():
-                            desc_lines.append(f"Moving averages act as dynamic support/resistance levels.")
-                            desc_lines.append(f"Institutional traders often defend these levels.")
-                        else:
-                            desc_lines.append(f"This entry provides favorable risk/reward based on current technicals.")
-                        
-                        full_desc = "<br>".join(desc_lines[:4])
-                        
-                        st.markdown(f"""
-                        <div style="background: #1a2e1a; border-radius: 8px; padding: 18px; margin: 8px 0; border-left: 3px solid #00C853; min-height: 200px;">
-                            <h4 style="margin:0; color: #00C853;">BUY @ ${rec.entry_price:.2f}</h4>
-                            <p style="margin: 8px 0; color: #888;">
-                                Target: <strong style="color: #00C853;">${rec.target_price:.2f}</strong> 
-                                ({expected_return:+.1f}%)
-                            </p>
-                            <p style="margin: 8px 0; color: #888;">
-                                Stop Loss: ${rec.stop_loss:.2f} | R:R {risk_reward:.1f}x | Prob: {rec.probability:.0f}%
-                            </p>
-                            <div style="margin: 10px 0; color: #bbb; font-size: 12px; line-height: 1.5;">
-                                {full_desc}
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                # Build extended description
+                desc_lines = [rec.reasoning]
+                if "support" in rec.reasoning.lower():
+                    desc_lines.append(f"This level has historically acted as a floor where buyers step in.")
+                    desc_lines.append(f"Setting a limit order here allows you to catch a potential bounce.")
+                elif "bollinger" in rec.reasoning.lower():
+                    desc_lines.append(f"Price touching the lower Bollinger band often signals oversold conditions.")
+                    desc_lines.append(f"Mean reversion to the middle band is a common follow-through.")
+                elif "sma" in rec.reasoning.lower():
+                    desc_lines.append(f"Moving averages act as dynamic support/resistance levels.")
+                    desc_lines.append(f"Institutional traders often defend these levels.")
                 else:
-                    st.info(f"No BUY signals for {timeframe_labels[tf]}")
-            
-            # SELL recommendations
-            with col2:
-                st.markdown("### 🔴 SELL Targets")
+                    desc_lines.append(f"This entry provides favorable risk/reward based on current technicals.")
                 
-                if sell_recs:
-                    for rec in sell_recs[:2]:
-                        # For sells, profit comes from price going down
-                        expected_return = ((rec.entry_price - rec.target_price) / rec.entry_price) * 100
-                        risk_reward = abs(rec.entry_price - rec.target_price) / max(abs(rec.stop_loss - rec.entry_price), 0.01)
-                        
-                        # Build extended description
-                        desc_lines = [rec.reasoning]
-                        if "resistance" in rec.reasoning.lower():
-                            desc_lines.append(f"This level has historically acted as a ceiling where sellers emerge.")
-                            desc_lines.append(f"Price often reverses here, making it an ideal take-profit zone.")
-                        elif "bollinger" in rec.reasoning.lower():
-                            desc_lines.append(f"Price touching the upper Bollinger band often signals overbought conditions.")
-                            desc_lines.append(f"Mean reversion back to the middle band is a common pattern.")
-                        elif "sma" in rec.reasoning.lower():
-                            desc_lines.append(f"Moving averages often act as resistance on the way up.")
-                            desc_lines.append(f"Consider scaling out of positions near these levels.")
-                        else:
-                            desc_lines.append(f"This exit provides favorable risk/reward based on current technicals.")
-                        
-                        full_desc = "<br>".join(desc_lines[:4])
-                        
-                        st.markdown(f"""
-                        <div style="background: #2e1a1a; border-radius: 8px; padding: 18px; margin: 8px 0; border-left: 3px solid #FF1744; min-height: 200px;">
-                            <h4 style="margin:0; color: #FF1744;">SELL @ ${rec.entry_price:.2f}</h4>
-                            <p style="margin: 8px 0; color: #888;">
-                                Target: <strong style="color: #FF1744;">${rec.target_price:.2f}</strong> 
-                                ({expected_return:+.1f}% profit)
-                            </p>
-                            <p style="margin: 8px 0; color: #888;">
-                                Stop Loss: ${rec.stop_loss:.2f} | R:R {risk_reward:.1f}x | Prob: {rec.probability:.0f}%
-                            </p>
-                            <div style="margin: 10px 0; color: #bbb; font-size: 12px; line-height: 1.5;">
-                                {full_desc}
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info(f"No SELL signals for {timeframe_labels[tf]}")
+                full_desc = "<br>".join(desc_lines[:4])
+                
+                st.markdown(f"""
+                <div style="background: #1a2e1a; border-radius: 8px; padding: 18px; margin: 8px 0; border-left: 3px solid #00C853; min-height: 200px;">
+                    <h4 style="margin:0; color: #00C853;">BUY @ ${rec.entry_price:.2f}</h4>
+                    <p style="margin: 8px 0; color: #888;">
+                        Target: <strong style="color: #00C853;">${rec.target_price:.2f}</strong> 
+                        ({expected_return:+.1f}%)
+                    </p>
+                    <p style="margin: 8px 0; color: #888;">
+                        Stop Loss: ${rec.stop_loss:.2f} | R:R {risk_reward:.1f}x | Prob: {rec.probability:.0f}%
+                    </p>
+                    <div style="margin: 10px 0; color: #bbb; font-size: 12px; line-height: 1.5;">
+                        {full_desc}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info(f"No BUY signals for {period_label}")
     
-    # Also show pattern-based recommendations (from the original analysis)
-    if ta_result.buy_recommendations or ta_result.sell_recommendations:
-        with st.expander("📈 Pattern-Based Signals", expanded=False):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("### 🟢 Pattern BUY Signals")
-                for rec in ta_result.buy_recommendations[:3]:
-                    expected_return = ((rec.target_price - rec.entry_price) / rec.entry_price) * 100
-                    # Show recommendation type (ENTRY vs BREAKOUT)
-                    rec_type = getattr(rec, 'recommendation_type', 'ENTRY')
-                    type_label = "🎯 ENTRY" if rec_type == "ENTRY" else "⬆️ BREAKOUT"
-                    type_color = "#00C853" if rec_type == "ENTRY" else "#2196F3"
-                    st.markdown(f"""
-                    <div style="background: #1a2e1a; border-radius: 6px; padding: 10px; margin: 3px 0; border-left: 2px solid {type_color};">
-                        <b style="color: {type_color};">{type_label} BUY @ ${rec.entry_price:.2f}</b> → ${rec.target_price:.2f} ({expected_return:+.1f}%)
-                        <br><small style="color: #888;">{rec.reasoning[:80]}...</small>
+    # SELL recommendations
+    with col2:
+        st.markdown("### 🔴 SELL Targets")
+        
+        if sell_recs:
+            for rec in sell_recs[:2]:
+                # For sells, profit comes from price going down
+                expected_return = ((rec.entry_price - rec.target_price) / rec.entry_price) * 100
+                risk_reward = abs(rec.entry_price - rec.target_price) / max(abs(rec.stop_loss - rec.entry_price), 0.01)
+                
+                # Build extended description
+                desc_lines = [rec.reasoning]
+                if "resistance" in rec.reasoning.lower():
+                    desc_lines.append(f"This level has historically acted as a ceiling where sellers emerge.")
+                    desc_lines.append(f"Price often reverses here, making it an ideal take-profit zone.")
+                elif "bollinger" in rec.reasoning.lower():
+                    desc_lines.append(f"Price touching the upper Bollinger band often signals overbought conditions.")
+                    desc_lines.append(f"Mean reversion back to the middle band is a common pattern.")
+                elif "sma" in rec.reasoning.lower():
+                    desc_lines.append(f"Moving averages often act as resistance on the way up.")
+                    desc_lines.append(f"Consider scaling out of positions near these levels.")
+                else:
+                    desc_lines.append(f"This exit provides favorable risk/reward based on current technicals.")
+                
+                full_desc = "<br>".join(desc_lines[:4])
+                
+                st.markdown(f"""
+                <div style="background: #2e1a1a; border-radius: 8px; padding: 18px; margin: 8px 0; border-left: 3px solid #FF1744; min-height: 200px;">
+                    <h4 style="margin:0; color: #FF1744;">SELL @ ${rec.entry_price:.2f}</h4>
+                    <p style="margin: 8px 0; color: #888;">
+                        Target: <strong style="color: #FF1744;">${rec.target_price:.2f}</strong> 
+                        ({expected_return:+.1f}% profit)
+                    </p>
+                    <p style="margin: 8px 0; color: #888;">
+                        Stop Loss: ${rec.stop_loss:.2f} | R:R {risk_reward:.1f}x | Prob: {rec.probability:.0f}%
+                    </p>
+                    <div style="margin: 10px 0; color: #bbb; font-height: 1.5;">
+                        {full_desc}
                     </div>
-                    """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown("### 🔴 Pattern SELL Signals")
-                for rec in ta_result.sell_recommendations[:3]:
-                    expected_return = ((rec.entry_price - rec.target_price) / rec.entry_price) * 100
-                    # Show recommendation type (ENTRY vs BREAKDOWN)
-                    rec_type = getattr(rec, 'recommendation_type', 'ENTRY')
-                    type_label = "🎯 ENTRY" if rec_type == "ENTRY" else "⬇️ BREAKDOWN"
-                    type_color = "#FF1744" if rec_type == "ENTRY" else "#FF9800"
-                    st.markdown(f"""
-                    <div style="background: #2e1a1a; border-radius: 6px; padding: 10px; margin: 3px 0; border-left: 2px solid {type_color};">
-                        <b style="color: {type_color};">{type_label} SELL @ ${rec.entry_price:.2f}</b> → ${rec.target_price:.2f} ({expected_return:+.1f}%)
-                        <br><small style="color: #888;">{rec.reasoning[:80]}...</small>
-                    </div>
-                    """, unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info(f"No SELL signals for {period_label}")
 
 
 # ============================================================================
@@ -1074,7 +1065,7 @@ def render_accuracy_metrics():
 # Component 7: Live Price Chart
 # ============================================================================
 
-def render_price_chart(symbol: str, display_history, full_history, ta_result: TechnicalAnalysisResult):
+def render_price_chart(symbol: str, display_history, full_history, ta_result: TechnicalAnalysisResult, selected_period: str):
     """
     Render interactive price chart - UX Section 6
     
@@ -1083,6 +1074,7 @@ def render_price_chart(symbol: str, display_history, full_history, ta_result: Te
         display_history: DataFrame to display (trimmed to user-selected period)
         full_history: Full DataFrame for indicator calculations (includes lookback)
         ta_result: Technical analysis result
+        selected_period: Period from sidebar (1hr, 1d, 1w, 1mo, 3mo, 1y)
     """
     st.subheader("📉 Price Chart & Analysis")
     
@@ -1198,7 +1190,26 @@ def render_price_chart(symbol: str, display_history, full_history, ta_result: Te
         )
     
     # Add support/resistance lines
-    for support in ta_result.support_levels[:2]:
+    # For 1hr view, only show S/R within 10% of current price to avoid scale issues
+    # For 1d view, only show primary (closest) S/R
+    current_price = ta_result.current_price if ta_result.current_price > 0 else display_history['close'].iloc[-1]
+    
+    if selected_period == "1hr":
+        # Filter to S/R within 1% of current price for 1hr view
+        nearby_supports = [s for s in ta_result.support_levels 
+                          if abs(s.price - current_price) / current_price <= 0.01][:1]
+        nearby_resistances = [r for r in ta_result.resistance_levels 
+                              if abs(r.price - current_price) / current_price <= 0.01][:1]
+    elif selected_period == "1d":
+        # Just show primary S/R for 1d
+        nearby_supports = ta_result.support_levels[:1]
+        nearby_resistances = ta_result.resistance_levels[:1]
+    else:
+        # Show 2 levels for longer periods
+        nearby_supports = ta_result.support_levels[:2]
+        nearby_resistances = ta_result.resistance_levels[:2]
+    
+    for support in nearby_supports:
         fig.add_hline(
             y=support.price,
             line_dash="dash",
@@ -1207,7 +1218,7 @@ def render_price_chart(symbol: str, display_history, full_history, ta_result: Te
             row=1, col=1
         )
     
-    for resistance in ta_result.resistance_levels[:2]:
+    for resistance in nearby_resistances:
         fig.add_hline(
             y=resistance.price,
             line_dash="dash",
@@ -1276,16 +1287,19 @@ def render_price_chart(symbol: str, display_history, full_history, ta_result: Te
 # Component 8: RSI Chart
 # ============================================================================
 
-def render_rsi_chart(display_history, full_history):
+def render_rsi_chart(display_history, full_history, selected_period: str):
     """
-    Render RSI indicator chart - Taller, focused on last 90 days
+    Render RSI indicator chart - matches the selected period from sidebar
     
     Args:
-        display_history: DataFrame to display (trimmed period)
+        display_history: DataFrame to display (trimmed to selected period)
         full_history: Full DataFrame for RSI calculation (includes lookback)
+        selected_period: The period selected in sidebar (1hr, 1d, 1w, 1mo, 3mo, 1y)
     """
     if full_history is None or len(full_history) < 14:
         return
+    
+    period_label = {"1hr": "1 Hour", "1d": "1 Day", "1w": "1 Week", "1mo": "1 Month", "3mo": "3 Months", "1y": "1 Year"}.get(selected_period, selected_period)
     
     st.subheader("📈 RSI Indicator")
     
@@ -1296,15 +1310,16 @@ def render_rsi_chart(display_history, full_history):
     rs = gain / loss
     full_rsi = 100 - (100 / (1 + rs))
     
-    # Drop NaN values (first 14 bars are warmup), then take last 90 trading days
-    valid_rsi = full_rsi.dropna()
-    rsi_90d = valid_rsi.tail(90)
+    # Slice RSI to match display_history date range
+    display_start = display_history.index[0]
+    display_end = display_history.index[-1]
+    rsi_display = full_rsi.loc[display_start:display_end].dropna()
     
     fig = go.Figure()
     
     fig.add_trace(go.Scatter(
-        x=rsi_90d.index,
-        y=rsi_90d,
+        x=rsi_display.index,
+        y=rsi_display,
         name='RSI',
         line=dict(color='#2196F3', width=2),
         fill='tozeroy',
@@ -1319,23 +1334,30 @@ def render_rsi_chart(display_history, full_history):
     fig.add_hline(y=50, line_dash="dot", line_color="gray")
     
     # Add current RSI annotation
-    current_rsi = rsi_90d.iloc[-1] if len(rsi_90d) > 0 else 50
+    current_rsi = rsi_display.iloc[-1] if len(rsi_display) > 0 else 50
     rsi_status = "Overbought" if current_rsi > 70 else ("Oversold" if current_rsi < 30 else "Neutral")
     
+    # Add rangebreaks based on period
+    rangebreaks = [dict(bounds=["sat", "mon"])]  # Hide weekends
+    
+    # For intraday periods, also hide non-trading hours
+    if selected_period in ["1hr", "1d", "1w"]:
+        rangebreaks.append(dict(bounds=[16, 9.5], pattern="hour"))
+    
     fig.update_layout(
-        height=400,  # Taller chart (was 250)
+        height=400,  # Taller chart
         template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         margin=dict(t=30, b=30, l=50, r=50),
         yaxis=dict(range=[0, 100], title="RSI"),
         xaxis=dict(
-            title="Date (Last 90 Days)",
-            rangebreaks=[dict(bounds=["sat", "mon"])]  # Hide weekends
+            title=f"RSI ({period_label})",
+            rangebreaks=rangebreaks
         ),
         annotations=[
             dict(
-                x=rsi_90d.index[-1] if len(rsi_90d) > 0 else None,
+                x=rsi_display.index[-1] if len(rsi_display) > 0 else None,
                 y=current_rsi,
                 text=f"Current: {current_rsi:.1f} ({rsi_status})",
                 showarrow=True,
@@ -1468,53 +1490,94 @@ def render_volume_profile(history_df, current_price: float):
     with col2:
         st.markdown("### 🎯 Key Levels")
         
-        # POC
+        # POC - Point of Control
+        poc_distance = ((current_price - profile.poc) / profile.poc) * 100
+        poc_status = "above" if current_price > profile.poc else "below"
         st.markdown(f"""
-        <div style="background: #1a1a2e; padding: 10px; border-radius: 5px; margin: 5px 0;">
-            <span style="color: #E91E63;">●</span> <b>POC</b>: ${profile.poc:.2f}
-            <br><small style="color: #888;">Point of Control</small>
+        <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; margin: 5px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span><span style="color: #E91E63; font-size: 18px;">●</span> <b style="font-size: 16px;">POC</b></span>
+                <span style="color: #E91E63; font-size: 18px; font-weight: bold;">${profile.poc:.2f}</span>
+            </div>
+            <p style="margin: 8px 0 0 0; color: #888; font-size: 12px;">
+                Point of Control - highest volume price<br>
+                Price is {abs(poc_distance):.1f}% {poc_status} POC
+            </p>
         </div>
         """, unsafe_allow_html=True)
         
         # Value Area
+        va_width = profile.value_area_high - profile.value_area_low
+        va_width_pct = (va_width / current_price) * 100
+        in_va = profile.value_area_low <= current_price <= profile.value_area_high
         st.markdown(f"""
-        <div style="background: #1a1a2e; padding: 10px; border-radius: 5px; margin: 5px 0;">
-            <span style="color: #FFC107;">●</span> <b>VAH</b>: ${profile.value_area_high:.2f}
-            <br><span style="color: #FFC107;">●</span> <b>VAL</b>: ${profile.value_area_low:.2f}
-            <br><small style="color: #888;">70% of volume</small>
+        <div style="background: #1a1a2e; padding: 12px; border-radius: 8px; margin: 5px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span><span style="color: #FFC107; font-size: 18px;">●</span> <b style="font-size: 16px;">Value Area</b></span>
+                <span style="color: {'#00C853' if in_va else '#888'}; font-size: 12px;">{'✓ Inside' if in_va else 'Outside'}</span>
+            </div>
+            <p style="margin: 8px 0; color: #ccc;">
+                <b>VAH</b>: ${profile.value_area_high:.2f} &nbsp;|&nbsp; <b>VAL</b>: ${profile.value_area_low:.2f}
+            </p>
+            <p style="margin: 0; color: #888; font-size: 12px;">
+                70% of volume traded in ${va_width:.2f} range ({va_width_pct:.1f}% of price)
+            </p>
         </div>
         """, unsafe_allow_html=True)
+    
+    # Order Walls Section - Horizontal cards layout
+    st.markdown("### 🏰 Order Walls")
+    st.caption("High volume nodes that may act as support/resistance barriers")
+    
+    # Get estimated walls
+    walls = analyzer.estimate_order_walls(threshold_pct=3.0)
+    
+    # Show walls near current price
+    relevant_walls = []
+    for wall in walls["buy_walls"] + walls["sell_walls"]:
+        distance = abs(wall["price"] - current_price) / current_price * 100
+        if distance <= 15:  # Within 15% of current price
+            wall["distance"] = distance
+            wall["direction"] = "above" if wall["price"] > current_price else "below"
+            wall["type"] = "Resistance" if wall["price"] > current_price else "Support"
+            relevant_walls.append(wall)
+    
+    # Sort by proximity
+    relevant_walls.sort(key=lambda x: x["distance"])
+    
+    if relevant_walls:
+        # Create horizontal card layout
+        wall_cols = st.columns(min(len(relevant_walls[:5]), 5))
         
-        # High Volume Nodes (potential S/R)
-        st.markdown("#### 🏰 Order Walls")
-        
-        # Get estimated walls
-        walls = analyzer.estimate_order_walls(threshold_pct=3.0)
-        
-        # Show walls near current price
-        relevant_walls = []
-        for wall in walls["buy_walls"] + walls["sell_walls"]:
-            distance = abs(wall["price"] - current_price) / current_price * 100
-            if distance <= 15:  # Within 15% of current price
-                wall["distance"] = distance
-                wall["direction"] = "above" if wall["price"] > current_price else "below"
-                relevant_walls.append(wall)
-        
-        # Sort by proximity
-        relevant_walls.sort(key=lambda x: x["distance"])
-        
-        for wall in relevant_walls[:5]:
-            color = "#00C853" if wall["direction"] == "below" else "#FF1744"
-            arrow = "⬇️" if wall["direction"] == "below" else "⬆️"
-            st.markdown(f"""
-            <div style="background: #252538; padding: 8px; border-radius: 5px; margin: 3px 0; border-left: 3px solid {color};">
-                {arrow} <b>${wall['price']:.2f}</b>
-                <br><small style="color: #888;">{wall['volume_pct']:.1f}% vol | {wall['strength']}</small>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        if not relevant_walls:
-            st.caption("No significant walls within 15% of price")
+        for i, wall in enumerate(relevant_walls[:5]):
+            with wall_cols[i]:
+                color = "#00C853" if wall["direction"] == "below" else "#FF1744"
+                arrow = "⬇️ Support" if wall["direction"] == "below" else "⬆️ Resistance"
+                distance_pct = wall["distance"]
+                vol_pct = wall["volume_pct"]
+                strength = wall["strength"]
+                
+                # Strength indicator
+                strength_bars = "▰" * (3 if strength == "STRONG" else (2 if strength == "MODERATE" else 1))
+                strength_bars += "▱" * (3 - len(strength_bars))
+                
+                st.markdown(f"""
+                <div style="background: #252538; padding: 12px; border-radius: 8px; border-left: 4px solid {color}; min-height: 150px;">
+                    <div style="color: {color}; font-size: 11px; margin-bottom: 5px;">{arrow}</div>
+                    <div style="color: #fff; font-size: 20px; font-weight: bold; margin-bottom: 8px;">${wall['price']:.2f}</div>
+                    <div style="color: #888; font-size: 11px; margin-bottom: 4px;">
+                        📏 {distance_pct:.1f}% away
+                    </div>
+                    <div style="color: #888; font-size: 11px; margin-bottom: 4px;">
+                        📊 {vol_pct:.1f}% volume
+                    </div>
+                    <div style="color: {color}; font-size: 11px;">
+                        {strength_bars} {strength}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("No significant walls within 15% of current price")
     
     # Legend
     st.markdown("""
@@ -1531,7 +1594,7 @@ def render_volume_profile(history_df, current_price: float):
 # Component 10: ML Order Flow Prediction
 # ============================================================================
 
-def render_ml_order_flow(history_df, current_price: float):
+def render_ml_order_flow(history_df, current_price: float, selected_period: str):
     """
     Render ML-based Order Flow Prediction - Estimates where buy/sell walls
     are likely accumulating based on price action patterns.
@@ -1539,19 +1602,31 @@ def render_ml_order_flow(history_df, current_price: float):
     Args:
         history_df: Historical OHLCV DataFrame
         current_price: Current stock price
+        selected_period: Selected period (1hr, 1d, 1w, 1mo, 3mo, 1y)
     """
     if history_df is None or len(history_df) < 20:
+        return
+    
+    # For 1hr view with minute data, this section doesn't work well
+    # Skip for very short timeframes
+    if selected_period == "1hr":
+        st.subheader("🤖 ML Order Flow Prediction")
+        st.info("📊 Order flow prediction requires longer timeframes (1 day or more) for meaningful analysis.")
         return
     
     st.subheader("🤖 ML Order Flow Prediction")
     st.caption("🧠 AI-estimated order walls based on price rejection, volume patterns, and historical behavior")
     
-    # Use last 90 days for better resistance detection
-    # Short lookback may miss resistance levels if price has been trending up
-    recent_df = history_df.tail(90)
+    # Adjust lookback based on period
+    if selected_period == "1d":
+        lookback = min(len(history_df), 60)  # Use available bars for 1d
+    else:
+        lookback = 90  # Use 90 days for longer periods
     
-    # Calculate ML predictions with extended lookback
-    estimator = OrderFlowMLEstimator(recent_df, lookback_days=90)
+    recent_df = history_df.tail(lookback)
+    
+    # Calculate ML predictions with appropriate lookback
+    estimator = OrderFlowMLEstimator(recent_df, lookback_days=lookback)
     prediction = estimator.predict_order_flow()
     
     if not prediction.estimated_walls:
@@ -1725,15 +1800,6 @@ def main():
     # Render sidebar and get selections
     symbol, period, run_analysis = render_sidebar()
     
-    # Header with live timestamp
-    col_title, col_time = st.columns([3, 1])
-    with col_title:
-        st.title(f"🔮 HERMES Quantum Trading Dashboard")
-        st.caption(f"Real-time analysis for {symbol} | Quantum Computing Stocks")
-    with col_time:
-        st.markdown(f"### ⏱️ `{datetime.now().strftime('%H:%M:%S')}`")
-        st.caption("Live data - refreshing every 5s")
-    
     # Load data (fetches extended period for indicator warmup)
     with st.spinner(f"Loading data for {symbol}..."):
         try:
@@ -1764,8 +1830,8 @@ def main():
     display_bars = DISPLAY_BARS.get(requested_period, 130)
     history_df = full_history_df.tail(display_bars)
     
-    # For 5-day hourly view, remove off-hours data (before market open, after market close)
-    if requested_period == "5d" and len(history_df) > 0:
+    # For intraday views (1hr, 1d, 1w), filter to market hours only
+    if requested_period in ["1hr", "1d", "1w"] and len(history_df) > 0:
         # Filter to market hours only (9:30 AM - 4:00 PM ET)
         if hasattr(history_df.index, 'hour'):
             market_hours = (history_df.index.hour >= 9) & (history_df.index.hour < 16)
@@ -1802,7 +1868,10 @@ def main():
     # Dashboard Layout
     # =========================================================================
     
-    # Row 1: Ticker Info
+    # Fixed Price Banner (stays in top-right corner while scrolling)
+    render_fixed_price_banner(symbol, quote, info)
+    
+    # Row 1: Ticker Info (metrics only - price in fixed banner)
     render_ticker_info(symbol, quote, info)
     
     st.divider()
@@ -1812,8 +1881,8 @@ def main():
     
     st.divider()
     
-    # Row 3: Limit Orders
-    render_limit_orders(ta_result)
+    # Row 3: Limit Orders (uses sidebar period)
+    render_limit_orders(ta_result, requested_period)
     
     st.divider()
     
@@ -1826,19 +1895,14 @@ def main():
     st.divider()
     
     # Row 5: Charts (pass both full_history for calculations and display_history for display)
-    render_price_chart(symbol, history_df, full_history_df, ta_result)
-    render_rsi_chart(history_df, full_history_df)
+    render_price_chart(symbol, history_df, full_history_df, ta_result, requested_period)
+    render_rsi_chart(history_df, full_history_df, requested_period)
     
     # Row 6: Volume Profile Heatmap (Order Flow)
     render_volume_profile(history_df, ta_result.current_price)
     
     # Row 7: ML Order Flow Prediction
-    render_ml_order_flow(history_df, ta_result.current_price)
-    
-    st.divider()
-    
-    # Row 8: Prediction Accuracy
-    render_accuracy_metrics()
+    render_ml_order_flow(history_df, ta_result.current_price, requested_period)
     
     # Footer
     st.divider()

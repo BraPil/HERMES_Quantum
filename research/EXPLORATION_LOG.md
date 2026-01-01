@@ -15,6 +15,53 @@ Each entry should include:
 
 ## Log Entries
 
+### 2026-01-01 23:45 - v0.2.0 Released: Dashboard UX Refinement Complete
+- **Type**: Version Release
+- **Version**: v0.2.0
+- **Duration**: December 31, 2025 - January 1, 2026
+- **Focus**: Dashboard user experience refinement
+- **Key Accomplishments**:
+  1. **Intraday Support**: Added 1-hour and 1-day periods with minute/5-min bars
+  2. **Trendline Fix**: Corrected ascending resistance detection algorithm
+  3. **Chart Improvements**: Rangebreaks for weekends and non-trading hours
+  4. **RSI Fixes**: Proper warmup handling, annotation positioning
+  5. **Fixed Price Banner**: CSS position:fixed for always-visible price
+  6. **S/R Filtering**: Period-aware filtering (1% for 1hr, primary for 1d)
+  7. **ML Order Flow**: Graceful degradation for intraday views
+- **Code Metrics**: +1,719 lines added, -523 lines removed
+- **UAT Rounds**: 4 rounds of live user feedback incorporated
+- **Documentation**: 
+  - Branch Wrapup Protocol established
+  - Comprehensive version documentation created
+  - State savepoint for session continuity
+- **Next Steps**: v0.3.0 will focus on sentiment agent integration
+- **Links**:
+  - [Accomplishments](../docs/HERMES_Quantum_ACCOMPLISHMENTS_v0.2.0_2026-01-01.md)
+  - [Work Log](../docs/HERMES_Quantum_WORK_LOG_v0.2.0_2026-01-01.md)
+  - [Lessons Learned](../docs/HERMES_Quantum_LESSONS_LEARNED_v0.2.0_2026-01-01.md)
+  - [v0.3.0 Plan](../docs/HERMES_Quantum_ANALYSIS_AND_PLAN_v0.3.0_2026-01-01.md)
+
+---
+
+### 2025-12-31 - v0.1.1: UX Refinement Session Started
+- **Type**: Development Session
+- **Description**: Live UAT session for dashboard refinement
+- **Key Fixes**:
+  - Ascending resistance trendlines (was detecting descending)
+  - Chart rangebreaks for non-trading hours
+  - RSI annotation positioning
+- **Notes**: Extended session continued into v0.2.0
+
+---
+
+### 2025-12-30 - v0.1.0: First Light Release
+- **Type**: Milestone
+- **Description**: Initial working dashboard release
+- **Features**: Full TA library, interactive charts, limit order recommendations
+- **Tag**: v0.1.0
+
+---
+
 ### 2025-12-28 20:00 - Agent 92 (Optimizer/Tuner) Added to Architecture
 - **Type**: Architecture Enhancement
 - **Description**: Added 9th agent for continuous model optimization and performance improvement
