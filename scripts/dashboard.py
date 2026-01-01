@@ -287,141 +287,151 @@ def render_trading_panel(symbol: str, current_price: float):
         except Exception as e:
             pass  # IBKR not connected
     
-    # Trading Panel Header
-    with st.expander("💹 **IBKR TRADING PANEL**", expanded=True):
-        # Connection status row
-        status_col, account_col, action_col = st.columns([1, 2, 1])
-        
-        with status_col:
-            if ibkr_connected:
-                st.markdown("""
-                <div style="background: #00C85322; border: 1px solid #00C853; border-radius: 8px; padding: 10px; text-align: center;">
-                    <span style="color: #00C853; font-size: 20px;">🟢 CONNECTED</span><br>
-                    <span style="color: #888; font-size: 12px;">IBKR Paper Trading</span>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style="background: #FF174422; border: 1px solid #FF1744; border-radius: 8px; padding: 10px; text-align: center;">
-                    <span style="color: #FF1744; font-size: 20px;">🔴 DISCONNECTED</span><br>
-                    <span style="color: #888; font-size: 12px;">Start TWS to connect</span>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        with account_col:
-            if account_info:
-                net_liq = account_info.get('NetLiquidation', 0)
-                available = account_info.get('AvailableFunds', 0)
-                daily_pnl = account_info.get('UnrealizedPnL', 0)
-                
-                st.markdown(f"""
-                <div style="background: #1a1a2e; border-radius: 8px; padding: 15px;">
-                    <div style="display: flex; justify-content: space-around;">
-                        <div style="text-align: center;">
-                            <span style="color: #888; font-size: 11px;">NET LIQUIDATION</span><br>
-                            <span style="color: #4488ff; font-size: 20px; font-weight: bold;">${net_liq:,.2f}</span>
-                        </div>
-                        <div style="text-align: center;">
-                            <span style="color: #888; font-size: 11px;">AVAILABLE</span><br>
-                            <span style="color: #00C853; font-size: 20px; font-weight: bold;">${available:,.2f}</span>
-                        </div>
-                        <div style="text-align: center;">
-                            <span style="color: #888; font-size: 11px;">DAILY P&L</span><br>
-                            <span style="color: {'#00C853' if daily_pnl >= 0 else '#FF1744'}; font-size: 20px; font-weight: bold;">${daily_pnl:+,.2f}</span>
-                        </div>
+    # Trading Panel Header (no dropdown - always visible)
+    st.markdown("### 💹 IBKR TRADING PANEL")
+    
+    # Connection status row
+    status_col, account_col, action_col = st.columns([1, 2, 1])
+    
+    with status_col:
+        if ibkr_connected:
+            st.markdown("""
+            <div style="background: #00C85322; border: 1px solid #00C853; border-radius: 8px; padding: 10px; text-align: center;">
+                <span style="color: #00C853; font-size: 20px;">🟢 CONNECTED</span><br>
+                <span style="color: #888; font-size: 12px;">IBKR Paper Trading</span>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background: #FF174422; border: 1px solid #FF1744; border-radius: 8px; padding: 10px; text-align: center;">
+                <span style="color: #FF1744; font-size: 20px;">🔴 DISCONNECTED</span><br>
+                <span style="color: #888; font-size: 12px;">Start TWS to connect</span>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with account_col:
+        if account_info:
+            net_liq = account_info.get('NetLiquidation', 0)
+            available = account_info.get('AvailableFunds', 0)
+            daily_pnl = account_info.get('UnrealizedPnL', 0)
+            
+            st.markdown(f"""
+            <div style="background: #1a1a2e; border-radius: 8px; padding: 15px;">
+                <div style="display: flex; justify-content: space-around;">
+                    <div style="text-align: center;">
+                        <span style="color: #888; font-size: 11px;">NET LIQUIDATION</span><br>
+                        <span style="color: #4488ff; font-size: 20px; font-weight: bold;">${net_liq:,.2f}</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <span style="color: #888; font-size: 11px;">AVAILABLE</span><br>
+                        <span style="color: #00C853; font-size: 20px; font-weight: bold;">${available:,.2f}</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <span style="color: #888; font-size: 11px;">DAILY P&L</span><br>
+                        <span style="color: {'#00C853' if daily_pnl >= 0 else '#FF1744'}; font-size: 20px; font-weight: bold;">${daily_pnl:+,.2f}</span>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background: #1a1a2e; border-radius: 8px; padding: 15px; text-align: center;">
+                <span style="color: #888;">Account data unavailable - Connect IBKR TWS</span>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with action_col:
+        # Connect/Disconnect button
+        if not ibkr_connected:
+            if st.button("🔌 Connect IBKR", use_container_width=True):
+                try:
+                    if IBKR_AVAILABLE:
+                        # Python 3.14+ asyncio fix
+                        import asyncio
+                        try:
+                            asyncio.get_running_loop()
+                        except RuntimeError:
+                            asyncio.set_event_loop(asyncio.new_event_loop())
+                        
+                        from execution.ibkr_trading import IBKRTradingClient
+                        client = IBKRTradingClient()
+                        if client.connect():
+                            st.session_state.ibkr_client = client
+                            st.success("Connected to IBKR!")
+                            st.rerun()
+                        else:
+                            st.error("Failed to connect. Is TWS running on port 7497?")
+                    else:
+                        st.error("IBKR module not available. Install ib_insync.")
+                except Exception as e:
+                    st.error(f"Connection error: {e}")
+        else:
+            if st.button("🔌 Disconnect", use_container_width=True):
+                if st.session_state.ibkr_client:
+                    st.session_state.ibkr_client.disconnect()
+                    st.session_state.ibkr_client = None
+                    st.rerun()
+    
+    st.markdown("---")
+    
+    # Quick Trade Row
+    trade_col1, trade_col2, trade_col3, trade_col4 = st.columns([1, 1, 1, 1])
+    
+    with trade_col1:
+        st.markdown(f"**{symbol}** @ ${current_price:.2f}")
+    
+    with trade_col2:
+        shares = st.number_input("Shares", min_value=1, max_value=1000, value=10, key="trade_shares")
+    
+    with trade_col3:
+        if st.button("🟢 BUY", use_container_width=True, type="primary"):
+            if ibkr_connected:
+                st.info(f"Would place: BUY {shares} {symbol} @ LIMIT ${current_price:.2f}")
+                # TODO: Execute via IBKR
             else:
-                st.markdown("""
-                <div style="background: #1a1a2e; border-radius: 8px; padding: 15px; text-align: center;">
-                    <span style="color: #888;">Account data unavailable - Connect IBKR TWS</span>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        with action_col:
-            # Connect/Disconnect button
-            if not ibkr_connected:
-                if st.button("🔌 Connect IBKR", use_container_width=True):
-                    try:
-                        if IBKR_AVAILABLE:
-                            from execution.ibkr_trading import IBKRTradingClient
-                            client = IBKRTradingClient()
-                            if client.connect():
-                                st.session_state.ibkr_client = client
-                                st.success("Connected to IBKR!")
-                                st.rerun()
-                            else:
-                                st.error("Failed to connect. Is TWS running?")
-                    except Exception as e:
-                        st.error(f"Connection error: {e}")
+                st.warning("Connect to IBKR first")
+    
+    with trade_col4:
+        if st.button("🔴 SELL", use_container_width=True):
+            if ibkr_connected:
+                st.info(f"Would place: SELL {shares} {symbol} @ LIMIT ${current_price:.2f}")
+                # TODO: Execute via IBKR
             else:
-                if st.button("🔌 Disconnect", use_container_width=True):
-                    if st.session_state.ibkr_client:
-                        st.session_state.ibkr_client.disconnect()
-                        st.session_state.ibkr_client = None
-                        st.rerun()
+                st.warning("Connect to IBKR first")
+    
+    # Positions & Orders
+    if ibkr_connected and (positions or open_orders):
+        pos_col, order_col = st.columns(2)
         
-        st.markdown("---")
+        with pos_col:
+            st.markdown("**📊 Positions**")
+            if positions:
+                for pos in positions[:5]:
+                    pnl_color = "#00C853" if pos.get('unrealizedPnL', 0) >= 0 else "#FF1744"
+                    st.markdown(f"""
+                    <div style="background: #1a1a2e; border-radius: 5px; padding: 8px; margin: 3px 0;">
+                        <span style="color: #fff;">{pos.get('symbol', 'N/A')}</span>
+                        <span style="color: #888; margin-left: 10px;">{pos.get('position', 0)} shares</span>
+                        <span style="color: {pnl_color}; float: right;">${pos.get('unrealizedPnL', 0):+.2f}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.caption("No positions")
         
-        # Quick Trade Row
-        trade_col1, trade_col2, trade_col3, trade_col4 = st.columns([1, 1, 1, 1])
-        
-        with trade_col1:
-            st.markdown(f"**{symbol}** @ ${current_price:.2f}")
-        
-        with trade_col2:
-            shares = st.number_input("Shares", min_value=1, max_value=1000, value=10, key="trade_shares")
-        
-        with trade_col3:
-            if st.button("🟢 BUY", use_container_width=True, type="primary"):
-                if ibkr_connected:
-                    st.info(f"Would place: BUY {shares} {symbol} @ LIMIT ${current_price:.2f}")
-                    # TODO: Execute via IBKR
-                else:
-                    st.warning("Connect to IBKR first")
-        
-        with trade_col4:
-            if st.button("🔴 SELL", use_container_width=True):
-                if ibkr_connected:
-                    st.info(f"Would place: SELL {shares} {symbol} @ LIMIT ${current_price:.2f}")
-                    # TODO: Execute via IBKR
-                else:
-                    st.warning("Connect to IBKR first")
-        
-        # Positions & Orders
-        if ibkr_connected and (positions or open_orders):
-            pos_col, order_col = st.columns(2)
-            
-            with pos_col:
-                st.markdown("**📊 Positions**")
-                if positions:
-                    for pos in positions[:5]:
-                        pnl_color = "#00C853" if pos.get('unrealizedPnL', 0) >= 0 else "#FF1744"
-                        st.markdown(f"""
-                        <div style="background: #1a1a2e; border-radius: 5px; padding: 8px; margin: 3px 0;">
-                            <span style="color: #fff;">{pos.get('symbol', 'N/A')}</span>
-                            <span style="color: #888; margin-left: 10px;">{pos.get('position', 0)} shares</span>
-                            <span style="color: {pnl_color}; float: right;">${pos.get('unrealizedPnL', 0):+.2f}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.caption("No positions")
-            
-            with order_col:
-                st.markdown("**📝 Open Orders**")
-                if open_orders:
-                    for order in open_orders[:5]:
-                        side_color = "#00C853" if order.get('action') == 'BUY' else "#FF1744"
-                        st.markdown(f"""
-                        <div style="background: #1a1a2e; border-radius: 5px; padding: 8px; margin: 3px 0;">
-                            <span style="color: {side_color};">{order.get('action', 'N/A')}</span>
-                            <span style="color: #fff; margin-left: 5px;">{order.get('totalQuantity', 0)} {order.get('symbol', 'N/A')}</span>
-                            <span style="color: #888; float: right;">@ ${order.get('lmtPrice', 0):.2f}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.caption("No open orders")
+        with order_col:
+            st.markdown("**📝 Open Orders**")
+            if open_orders:
+                for order in open_orders[:5]:
+                    side_color = "#00C853" if order.get('action') == 'BUY' else "#FF1744"
+                    st.markdown(f"""
+                    <div style="background: #1a1a2e; border-radius: 5px; padding: 8px; margin: 3px 0;">
+                        <span style="color: {side_color};">{order.get('action', 'N/A')}</span>
+                        <span style="color: #fff; margin-left: 5px;">{order.get('totalQuantity', 0)} {order.get('symbol', 'N/A')}</span>
+                        <span style="color: #888; float: right;">@ ${order.get('lmtPrice', 0):.2f}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.caption("No open orders")
 
 
 # ============================================================================
