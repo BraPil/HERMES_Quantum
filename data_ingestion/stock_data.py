@@ -101,9 +101,9 @@ class StockDataFetcher:
     def fetch_ohlcv(
         self,
         ticker: str,
-        start: str = None,
-        end: str = None,
-        period: str = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        period: Optional[str] = None,
         interval: str = '1d'
     ) -> pd.DataFrame:
         """
@@ -207,8 +207,10 @@ class StockDataFetcher:
             return pd.DataFrame()
         
         # Pivot to wide format: use 'close' prices with tickers as columns
-        wide_data = long_data.pivot_table(
-            index=long_data.index,
+        # Reset index to make date a column, then pivot using column name
+        long_reset = long_data.reset_index(names='date')
+        wide_data = long_reset.pivot_table(
+            index='date',
             columns='ticker',
             values='close'
         )

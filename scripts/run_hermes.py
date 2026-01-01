@@ -304,7 +304,8 @@ class HermesOrchestrator:
         for agent_id, summary in sorted(agent_summaries.items(), 
                                          key=lambda x: x[1]["weight"], reverse=True)[:2]:
             agent_name = self.agents[agent_id].name
-            reasoning_parts.append(f"{agent_name}: {summary['reasoning'][:60]}...")
+            reasoning_text = str(summary['reasoning'])[:60]
+            reasoning_parts.append(f"{agent_name}: {reasoning_text}...")
         
         return TradingDecision(
             ticker=ticker,
@@ -339,7 +340,7 @@ class HermesOrchestrator:
         except Exception as e:
             logger.debug(f"MLFlow logging skipped: {e}")
     
-    async def analyze_all(self, tickers: List[str] = None) -> List[TradingDecision]:
+    async def analyze_all(self, tickers: Optional[List[str]] = None) -> List[TradingDecision]:
         """
         Analyze all tickers and return ranked decisions.
         

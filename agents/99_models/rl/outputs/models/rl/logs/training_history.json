@@ -1,0 +1,32 @@
+[
+  {
+    "timestep": 1000,
+    "eval_return": 1.5885755409143165,
+    "eval_sharpe": -0.022183941656530957,
+    "eval_trades": 16
+  },
+  {
+    "timestep": 2000,
+    "eval_return": 0.0,
+    "eval_sharpe": 0,
+    "eval_trades": 0
+  },
+  {
+    "timestep": 3000,
+    "eval_return": -2.4523023427099835,
+    "eval_sharpe": -0.1703980046327408,
+    "eval_trades": 22
+  },
+  {
+    "timestep": 4000,
+    "eval_return": -2.1624611535959266,
+    "eval_sharpe": -0.14057238749870737,
+    "eval_trades": 28
+  },
+  {
+    "timestep": 5000,
+    "eval_return": 0.40916044133382096,
+    "eval_sharpe": -0.06874434929552489,
+    "eval_trades": 42
+  }
+]

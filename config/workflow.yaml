@@ -1,0 +1,120 @@
+# HERMES Quantum - Workflow Configuration
+# =========================================
+# Defines the multi-agent workflow DAG for trading decisions.
+# Each stage runs after the previous stage completes successfully.
+
+workflow:
+  # Stage 1: Data Collection
+  # Collect market data, news, and social media feeds
+  - stage: data_collection
+    agents: 
+      - 91_tools
+    parallel: false
+    required: true
+    timeout: 120
+    description: "Fetch market prices, news, and social data"
+
+  # Stage 2: Sentiment Analysis
+  # Run all sentiment models in parallel
+  - stage: sentiment_analysis
+    agents:
+      - 22_psychology  # finBERT news sentiment
+      - 23_social      # FinTwitBERT social sentiment
+      - 24_politics    # BART-MNLI policy analysis
+    parallel: true
+    required: true
+    timeout: 180
+    description: "Analyze sentiment from news and social media"
+
+  # Stage 3: Technical Analysis
+  # Run price forecasting and technical indicators
+  - stage: technical_analysis
+    agents:
+      - 25_market  # Chronos-T5 price forecasting
+    parallel: false
+    required: true
+    timeout: 300
+    description: "Generate price forecasts and technical signals"
+
+  # Stage 4: Portfolio Optimization
+  # Aggregate signals and optimize portfolio weights
+  - stage: portfolio_optimization
+    agents:
+      - 11_analyst  # PyPortfolioOpt integration
+    parallel: false
+    required: true
+    timeout: 60
+    description: "Calculate optimal portfolio allocation"
+
+  # Stage 5: Trading Decision
+  # Make final buy/sell/hold decisions
+  - stage: decision
+    agents:
+      - 01_orchestrator
+    parallel: false
+    required: true
+    timeout: 30
+    description: "Generate final trading decisions"
+
+# Agent Configurations
+agents:
+  91_tools:
+    name: "Data Tools"
+    data_sources:
+      - yfinance
+      - rss_feeds
+      - stocktwits
+    refresh_interval: 300  # 5 minutes
+
+  22_psychology:
+    name: "Psychology Agent"
+    model: "ProsusAI/finbert"
+    max_batch: 32
+    threshold: 0.6
+
+  23_social:
+    name: "Social Agent"
+    model: "StephanAkkerman/FinTwitBERT-sentiment"
+    max_batch: 64
+    threshold: 0.5
+
+  24_politics:
+    name: "Politics Agent"
+    model: "facebook/bart-large-mnli"
+    labels:
+      - "positive for quantum computing"
+      - "negative for quantum computing"
+      - "neutral"
+
+  25_market:
+    name: "Market Agent"
+    model: "amazon/chronos-t5-large"
+    context_length: 256
+    prediction_horizon: 5
+
+  11_analyst:
+    name: "Analyst Agent"
+    optimizer: "PyPortfolioOpt"
+    risk_model: "sample_cov"
+    objective: "max_sharpe"
+
+  01_orchestrator:
+    name: "Orchestrator Agent"
+    decision_threshold: 0.6
+    min_conviction: 0.5
+    risk_check: true
+
+# Target Stocks
+tickers:
+  - QBTS   # D-Wave Quantum
+  - IONQ   # IonQ Inc.
+  - RGTI   # Rigetti Computing
+  - QUBT   # Quantum Computing Inc.
+
+# Schedule Configuration
+schedule:
+  market_hours_only: true
+  start_time: "09:30"
+  end_time: "16:00"
+  timezone: "America/New_York"
+  cycle_interval: 300  # 5 minutes between cycles

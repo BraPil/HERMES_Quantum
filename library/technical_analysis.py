@@ -15,7 +15,7 @@ Date: December 2025
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from enum import Enum
 import logging
 from datetime import datetime
@@ -1695,7 +1695,7 @@ class LimitOrderRecommender:
     
     def __init__(self, current_price: float, indicators: TechnicalIndicators,
                  support_levels: List[SupportResistance], resistance_levels: List[SupportResistance],
-                 patterns: List[ChartPattern], atr: float = None):
+                 patterns: List[ChartPattern], atr: Optional[float] = None):
         """
         Initialize recommender
         
@@ -1949,7 +1949,7 @@ class LimitOrderRecommender:
         all_recs = {}
         
         # Timeframe multipliers for target/stop distances
-        timeframe_config = {
+        timeframe_config: Dict[str, Dict[str, Any]] = {
             "1hr": {"atr_mult": 0.5, "target_mult": 0.5, "max_targets": 2, "label": "1 Hour"},
             "1day": {"atr_mult": 1.0, "target_mult": 1.0, "max_targets": 2, "label": "1 Day"},
             "1week": {"atr_mult": 2.0, "target_mult": 2.5, "max_targets": 2, "label": "1 Week"},
@@ -1957,9 +1957,9 @@ class LimitOrderRecommender:
         }
         
         for tf, config in timeframe_config.items():
-            buy_recs = []
-            sell_recs = []
-            atr = self.atr * config["atr_mult"]
+            buy_recs: List[LimitOrderRecommendation] = []
+            sell_recs: List[LimitOrderRecommendation] = []
+            atr = float(self.atr * config["atr_mult"])
             
             # === BUY Recommendations for this timeframe ===
             
@@ -2197,8 +2197,8 @@ class TechnicalAnalyzer:
                                    supports: List[SupportResistance], resistances: List[SupportResistance],
                                    current_price: float) -> Tuple[str, float]:
         """Determine overall trading signal and strength"""
-        bullish_score = 0
-        bearish_score = 0
+        bullish_score: float = 0.0
+        bearish_score: float = 0.0
         
         # Trend contribution (weight: 30)
         if indicators.trend == TrendDirection.STRONG_BULLISH:

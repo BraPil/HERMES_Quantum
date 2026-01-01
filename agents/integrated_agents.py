@@ -66,7 +66,7 @@ class IntegratedSentimentAgent(BaseAgent):
     async def analyze(
         self,
         ticker: str,
-        data: Dict[str, Any] = None
+        data: Optional[Dict[str, Any]] = None
     ) -> Optional[AgentSignal]:
         """
         Analyze sentiment for a ticker.
@@ -222,7 +222,7 @@ class IntegratedSocialAgent(BaseAgent):
     async def analyze(
         self,
         ticker: str,
-        data: Dict[str, Any] = None
+        data: Optional[Dict[str, Any]] = None
     ) -> Optional[AgentSignal]:
         """
         Analyze social sentiment for a ticker.
@@ -319,7 +319,7 @@ class IntegratedPolicyAgent(BaseAgent):
     async def analyze(
         self,
         ticker: str,
-        data: Dict[str, Any] = None
+        data: Optional[Dict[str, Any]] = None
     ) -> Optional[AgentSignal]:
         """
         Analyze policy impact for a ticker.
@@ -412,7 +412,7 @@ class IntegratedForecastAgent(BaseAgent):
     async def analyze(
         self,
         ticker: str,
-        data: Dict[str, Any] = None
+        data: Optional[Dict[str, Any]] = None
     ) -> Optional[AgentSignal]:
         """
         Generate forecast for a ticker.
@@ -472,7 +472,7 @@ class IntegratedForecastAgent(BaseAgent):
                 
                 # Momentum-based forecast with noise
                 pct_change = avg_return * 5  # 5-day projection
-                pct_change += random.uniform(-volatility, volatility)
+                pct_change += random.uniform(-float(volatility), float(volatility))
                 pct_change = np.clip(pct_change, -0.15, 0.20)
             else:
                 pct_change = random.uniform(-0.05, 0.08)  # -5% to +8%
@@ -575,7 +575,7 @@ class IntegratedPortfolioAgent(BaseAgent):
     async def analyze(
         self,
         ticker: str,
-        data: Dict[str, Any] = None
+        data: Optional[Dict[str, Any]] = None
     ) -> Optional[AgentSignal]:
         """
         Analyze portfolio position for a ticker.
@@ -593,8 +593,8 @@ class IntegratedPortfolioAgent(BaseAgent):
         portfolio = data.get('portfolio', {})
         
         # Aggregate signals from other agents
-        total_value = 0
-        total_confidence = 0
+        total_value: float = 0.0
+        total_confidence: float = 0.0
         count = 0
         key_factors = []
         
@@ -704,8 +704,8 @@ def create_all_agents(lazy_load: bool = True) -> Dict[str, BaseAgent]:
 
 async def run_all_agents(
     ticker: str,
-    data: Dict[str, Any] = None,
-    agents: Dict[str, BaseAgent] = None
+    data: Optional[Dict[str, Any]] = None,
+    agents: Optional[Dict[str, BaseAgent]] = None
 ) -> Dict[str, AgentSignal]:
     """
     Run all agents for a ticker and aggregate results.

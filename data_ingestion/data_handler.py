@@ -44,20 +44,25 @@ class DataProcessor:
 class FillNAProcessor(DataProcessor):
     """Fill missing values"""
     
-    def __init__(self, method: str = 'ffill', fill_value: float = None):
+    def __init__(self, method: str = 'ffill', fill_value: Optional[float] = None):
         self.method = method
         self.fill_value = fill_value
     
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.fill_value is not None:
             return df.fillna(self.fill_value)
-        return df.fillna(method=self.method)
+        # Use ffill/bfill methods instead of deprecated fillna(method=...)
+        if self.method == 'ffill':
+            return df.ffill()
+        elif self.method == 'bfill':
+            return df.bfill()
+        return df.fillna(method=self.method)  # Fallback for other methods
 
 
 class NormalizeProcessor(DataProcessor):
     """Min-max normalization"""
     
-    def __init__(self, columns: List[str] = None):
+    def __init__(self, columns: Optional[List[str]] = None):
         self.columns = columns
     
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -75,7 +80,7 @@ class NormalizeProcessor(DataProcessor):
 class RobustZScoreProcessor(DataProcessor):
     """Robust Z-score using median and MAD"""
     
-    def __init__(self, columns: List[str] = None):
+    def __init__(self, columns: Optional[List[str]] = None):
         self.columns = columns
     
     def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -145,7 +150,7 @@ class HERMESDataHandler:
     # Quantum stock universe
     QUANTUM_TICKERS = ['QBTS', 'IONQ', 'RGTI', 'QUBT']
     
-    def __init__(self, db_path: str = None, cache_enabled: bool = True):
+    def __init__(self, db_path: Optional[str] = None, cache_enabled: bool = True):
         """
         Initialize the data handler.
         
@@ -153,7 +158,7 @@ class HERMESDataHandler:
             db_path: Path to SQLite database for news/social data
             cache_enabled: Whether to enable caching
         """
-        self.db_path = db_path or os.getenv('DATABASE_PATH', 'outputs/data/hermes.db')
+        self.db_path: str = db_path if db_path is not None else os.getenv('DATABASE_PATH', 'outputs/data/hermes.db') or 'outputs/data/hermes.db'
         self.cache_enabled = cache_enabled
         
         # Initialize sub-fetchers
@@ -164,12 +169,12 @@ class HERMESDataHandler:
     
     def fetch_stocks(
         self,
-        tickers: List[str] = None,
-        start: str = None,
-        end: str = None,
+        tickers: Optional[List[str]] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
         period: str = '6mo',
         interval: str = '1d',
-        processors: List[DataProcessor] = None
+        processors: Optional[List[DataProcessor]] = None
     ) -> pd.DataFrame:
         """
         Fetch stock data with optional processing.
@@ -211,7 +216,7 @@ class HERMESDataHandler:
         
         return result
     
-    def fetch_news(self, hours: int = 24, ticker: str = None) -> List[Dict]:
+    def fetch_news(self, hours: int = 24, ticker: Optional[str] = None) -> List[Dict]:
         """
         Fetch news articles from database.
         
@@ -258,7 +263,7 @@ class HERMESDataHandler:
     def fetch_social(
         self, 
         hours: int = 24, 
-        ticker: str = None,
+        ticker: Optional[str] = None,
         source: str = 'all'
     ) -> Dict[str, List[Dict]]:
         """
@@ -278,7 +283,7 @@ class HERMESDataHandler:
         
         conn = sqlite3.connect(self.db_path)
         since = (datetime.now() - timedelta(hours=hours)).isoformat()
-        result = {'reddit': [], 'stocktwits': []}
+        result: Dict[str, List[Dict]] = {'reddit': [], 'stocktwits': []}
         
         # Reddit
         if source in ['reddit', 'all']:
@@ -334,7 +339,7 @@ class HERMESDataHandler:
         period: str = '3mo',
         news_hours: int = 48,
         social_hours: int = 48,
-        processors: List[DataProcessor] = None
+        processors: Optional[List[DataProcessor]] = None
     ) -> Dict:
         """
         Fetch all data sources in one call.

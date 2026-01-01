@@ -19,7 +19,40 @@ Works closely with:
 - Agent 01 (orchestrator): Optimization triggers
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __agent_id__ = "92"
 __agent_name__ = "Optimizer/Tuner"
 __agent_type__ = "support"
+
+from .performance_monitor import (
+    PerformanceMonitor,
+    PerformanceMetric,
+    DriftAlert,
+    MetricsDatabase,
+    DriftDetector,
+    AlertLevel,
+    MetricType
+)
+
+from .hyperparameter_tuner import (
+    HyperparameterTuner,
+    OptimizationResult,
+    SearchSpace,
+    AGENT_SEARCH_SPACES
+)
+
+__all__ = [
+    # Performance Monitor
+    'PerformanceMonitor',
+    'PerformanceMetric',
+    'DriftAlert',
+    'MetricsDatabase',
+    'DriftDetector',
+    'AlertLevel',
+    'MetricType',
+    # Hyperparameter Tuner
+    'HyperparameterTuner',
+    'OptimizationResult',
+    'SearchSpace',
+    'AGENT_SEARCH_SPACES'
+]

@@ -21,8 +21,11 @@ spec11 = importlib.util.spec_from_file_location(
     "agent11",
     "/workspaces/HERMES_Quantum/agents/11_analyst/portfolio_optimizer.py"
 )
-agent11_mod = importlib.util.module_from_spec(spec11)
-spec11.loader.exec_module(agent11_mod)
+if spec11 is not None and spec11.loader is not None:
+    agent11_mod = importlib.util.module_from_spec(spec11)
+    spec11.loader.exec_module(agent11_mod)
+else:
+    raise ImportError("Failed to load agent11 module")
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)

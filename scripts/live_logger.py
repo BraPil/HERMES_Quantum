@@ -18,6 +18,7 @@ import os
 import time
 import argparse
 from datetime import datetime
+from typing import Optional, Dict, Any
 import logging
 
 # Add project root to path
@@ -28,7 +29,7 @@ from library.technical_analysis import TechnicalAnalyzer
 from library.order_flow_ml import OrderFlowMLEstimator
 
 # Configure logging
-def setup_logging(log_file: str = None):
+def setup_logging(log_file: Optional[str] = None):
     """Set up console and file logging"""
     
     # Suppress noisy third-party loggers FIRST
@@ -112,8 +113,8 @@ class LiveTradingLogger:
         self.logger = logging.getLogger(__name__)
         
         # Track previous signals to detect changes
-        self.previous_signals = {}
-        self.previous_prices = {}
+        self.previous_signals: Dict[str, Any] = {}
+        self.previous_prices: Dict[str, float] = {}
         
     def run(self):
         """Run the live monitoring loop"""

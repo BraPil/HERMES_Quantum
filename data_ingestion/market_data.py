@@ -386,7 +386,7 @@ class AlphaVantageFetcher(BaseDataFetcher):
     - Requires API key (free tier: 25 requests/day)
     """
     
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: Optional[str] = None):
         """
         Initialize Alpha Vantage fetcher.
         
@@ -550,8 +550,8 @@ class MarketDataFetcher:
         self,
         use_yahoo: bool = True,
         use_alpha_vantage: bool = False,  # Disabled by default - Yahoo is faster and more current
-        alpha_vantage_key: str = None,
-        cache_path: str = None,
+        alpha_vantage_key: Optional[str] = None,
+        cache_path: Optional[str] = None,
         cache_ttl_seconds: int = 60
     ):
         """
@@ -565,6 +565,8 @@ class MarketDataFetcher:
             cache_ttl_seconds: Quote cache TTL
         """
         self.fetchers: List[BaseDataFetcher] = []
+        self.yahoo: Optional[YahooFinanceFetcher] = None
+        self.alpha_vantage: Optional[AlphaVantageFetcher] = None
         
         # Initialize Yahoo Finance (primary)
         if use_yahoo and YFINANCE_AVAILABLE:
@@ -574,9 +576,6 @@ class MarketDataFetcher:
                 logger.info("Yahoo Finance enabled")
             except Exception as e:
                 logger.warning(f"Failed to init Yahoo Finance: {e}")
-                self.yahoo = None
-        else:
-            self.yahoo = None
         
         # Initialize Alpha Vantage (secondary)
         if use_alpha_vantage and ALPHA_VANTAGE_AVAILABLE:
@@ -586,9 +585,6 @@ class MarketDataFetcher:
                 logger.info("Alpha Vantage enabled")
             except Exception as e:
                 logger.warning(f"Failed to init Alpha Vantage: {e}")
-                self.alpha_vantage = None
-        else:
-            self.alpha_vantage = None
         
         # Initialize cache
         if cache_path is None:
@@ -698,7 +694,7 @@ class MarketDataFetcher:
         logger.error(f"All sources failed for {ticker}")
         return None
     
-    def get_quotes(self, tickers: List[str] = None) -> Dict[str, Quote]:
+    def get_quotes(self, tickers: Optional[List[str]] = None) -> Dict[str, Quote]:
         """
         Get quotes for multiple tickers.
         

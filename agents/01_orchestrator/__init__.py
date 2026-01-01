@@ -19,7 +19,17 @@ Usage:
 Created: 2025-12-30
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
+
+from .online_manager import (
+    OnlineManager,
+    Stage,
+    Task,
+    TaskQueue,
+    WorkflowResult,
+    TaskStatus,
+    StageStatus
+)
 
 from .event_bus import (
     EventBus,
@@ -69,6 +79,16 @@ from .orchestrator import (
     reset_orchestrator
 )
 
+from .agent_adapters import (
+    AgentAdapter,
+    SentimentAgentAdapter,
+    SocialAgentAdapter,
+    PolicyAgentAdapter,
+    ForecastAgentAdapter,
+    PortfolioAgentAdapter,
+    create_all_adapters
+)
+
 __all__ = [
     # Event Bus
     "EventBus",
@@ -111,5 +131,23 @@ __all__ = [
     "OrchestratorState",
     "DashboardData",
     "get_orchestrator",
-    "reset_orchestrator"
+    "reset_orchestrator",
+    
+    # Agent Adapters
+    "AgentAdapter",
+    "SentimentAgentAdapter",
+    "SocialAgentAdapter",
+    "PolicyAgentAdapter",
+    "ForecastAgentAdapter",
+    "PortfolioAgentAdapter",
+    "create_all_adapters",
+    
+    # Online Manager
+    "OnlineManager",
+    "Stage",
+    "Task",
+    "TaskQueue",
+    "WorkflowResult",
+    "TaskStatus",
+    "StageStatus"
 ]

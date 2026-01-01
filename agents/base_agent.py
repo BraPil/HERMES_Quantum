@@ -143,8 +143,8 @@ class BaseAgent(ABC):
         self,
         agent_id: str,
         signal_type: str,
-        name: str = None,
-        description: str = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
         enabled: bool = True
     ):
         """
@@ -203,8 +203,8 @@ class BaseAgent(ABC):
     async def analyze(
         self,
         ticker: str,
-        data: Dict[str, Any] = None
-    ) -> AgentSignal:
+        data: Optional[Dict[str, Any]] = None
+    ) -> Optional[AgentSignal]:
         """
         Perform analysis and generate a signal.
         
@@ -215,14 +215,14 @@ class BaseAgent(ABC):
             data: Optional input data (varies by agent)
             
         Returns:
-            AgentSignal with analysis results
+            AgentSignal with analysis results, or None if analysis failed
         """
         pass
     
     async def run(
         self,
         ticker: str,
-        data: Dict[str, Any] = None,
+        data: Optional[Dict[str, Any]] = None,
         publish: bool = True,
         track: bool = True
     ) -> Optional[AgentSignal]:
@@ -308,7 +308,7 @@ class BaseAgent(ABC):
     async def run_batch(
         self,
         tickers: List[str],
-        data: Dict[str, Dict[str, Any]] = None,
+        data: Optional[Dict[str, Dict[str, Any]]] = None,
         parallel: bool = True
     ) -> Dict[str, AgentSignal]:
         """
@@ -407,7 +407,7 @@ class SyncAgentWrapper:
     def run(
         self,
         ticker: str,
-        data: Dict[str, Any] = None,
+        data: Optional[Dict[str, Any]] = None,
         **kwargs
     ) -> Optional[AgentSignal]:
         """Run agent synchronously."""
@@ -418,7 +418,7 @@ class SyncAgentWrapper:
     def run_batch(
         self,
         tickers: List[str],
-        data: Dict[str, Dict[str, Any]] = None,
+        data: Optional[Dict[str, Dict[str, Any]]] = None,
         **kwargs
     ) -> Dict[str, AgentSignal]:
         """Run batch synchronously."""
