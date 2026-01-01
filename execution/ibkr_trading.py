@@ -271,13 +271,33 @@ class IBKRDataFeed:
             if ticker.last or ticker.bid or ticker.ask:
                 break
         
+        # Helper to safely get float value (handles NaN)
+        import math
+        def safe_float(val: Any, default: float = 0.0) -> float:
+            if val is None:
+                return default
+            try:
+                f = float(val)
+                return default if math.isnan(f) else f
+            except (ValueError, TypeError):
+                return default
+        
+        def safe_int(val: Any, default: int = 0) -> int:
+            if val is None:
+                return default
+            try:
+                f = float(val)
+                return default if math.isnan(f) else int(f)
+            except (ValueError, TypeError):
+                return default
+        
         # Build market data object
         data = MarketData(
             symbol=symbol,
-            bid=ticker.bid if ticker.bid and ticker.bid > 0 else 0.0,
-            ask=ticker.ask if ticker.ask and ticker.ask > 0 else 0.0,
-            last=ticker.last if ticker.last and ticker.last > 0 else (ticker.close if ticker.close else 0.0),
-            volume=int(ticker.volume) if ticker.volume else 0,
+            bid=safe_float(ticker.bid),
+            ask=safe_float(ticker.ask),
+            last=safe_float(ticker.last) or safe_float(ticker.close),
+            volume=safe_int(ticker.volume),
             timestamp=datetime.now()
         )
         
@@ -712,9 +732,16 @@ if __name__ == "__main__":
         
         print("\n📈 MARKET DATA (Delayed)")
         print("-" * 40)
+        print("  Note: Data may be unavailable when market is closed")
         for symbol in ["QBTS", "IONQ"]:
-            quote = client.get_quote(symbol)
-            print(f"  {symbol}: Last=${quote.last:.2f}, Bid=${quote.bid:.2f}, Ask=${quote.ask:.2f}")
+            try:
+                quote = client.get_quote(symbol)
+                if quote.last > 0 or quote.bid > 0:
+                    print(f"  {symbol}: Last=${quote.last:.2f}, Bid=${quote.bid:.2f}, Ask=${quote.ask:.2f}")
+                else:
+                    print(f"  {symbol}: No data available (market closed)")
+            except Exception as e:
+                print(f"  {symbol}: Error getting quote - {e}")
         
         print("\n📋 POSITIONS")
         print("-" * 40)
