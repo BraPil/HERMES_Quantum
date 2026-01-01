@@ -13,8 +13,16 @@ Requirements:
 Author: HERMES Development Team
 """
 
-from ib_insync import IB, Stock, util
+import asyncio
 import sys
+
+# Python 3.14+ requires event loop to be set before importing ib_insync
+try:
+    asyncio.get_running_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+from ib_insync import IB, Stock, util
 
 
 def test_connection():
