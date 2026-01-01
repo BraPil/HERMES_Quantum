@@ -65,6 +65,7 @@ class PatternType(Enum):
     BEARISH_ENGULFING = "bearish_engulfing"
     EVENING_STAR = "evening_star"
     DESCENDING_TRENDLINE = "descending_trendline"
+    ASCENDING_RESISTANCE = "ascending_resistance"  # Resistance line going UP (highs going up)
     STEPPED_DESCENT = "stepped_descent"
     
     # Neutral patterns
@@ -141,6 +142,41 @@ class ChartPattern:
     breakout_level: Optional[float] = None
     description: str = ""
     is_confirmed: bool = False
+    # Trendline-specific fields (Fix #3)
+    trendline_slope: Optional[float] = None  # Price change per day
+    trendline_anchor_price: Optional[float] = None  # Starting price of trendline
+    trendline_anchor_date: Optional[datetime] = None  # Starting date
+    trendline_second_price: Optional[float] = None  # Second confirmation point price
+    trendline_second_date: Optional[datetime] = None  # Second confirmation point date
+    projected_current_level: Optional[float] = None  # Where trendline is TODAY
+
+
+@dataclass
+class DynamicTrendline:
+    """
+    Dynamic trendline support/resistance calculated from swing points.
+    Fix #2: Tracks angled support/resistance lines (not just horizontal pivots).
+    """
+    trendline_type: str  # "support" or "resistance"
+    slope: float  # Price change per day (positive = ascending)
+    anchor_price: float  # Price at anchor point
+    anchor_date: datetime  # Date of anchor point
+    second_price: float  # Price at second confirmation point
+    second_date: datetime  # Date of second point
+    current_level: float  # Projected price at current date
+    touches: int  # Number of times price touched this line
+    confidence: float  # 0-100
+    is_intact: bool  # Has price broken through?
+    days_since_anchor: int  # Trading days from anchor to now
+    
+    def project_to_date(self, target_date: datetime) -> float:
+        """Project the trendline to a future date"""
+        days = (target_date - self.anchor_date).days
+        return self.anchor_price + (self.slope * days)
+    
+    def __repr__(self):
+        direction = "Ascending" if self.slope > 0 else "Descending"
+        return f"{direction} {self.trendline_type}: ${self.current_level:.2f} (slope: ${self.slope:.4f}/day, {self.touches} touches)"
 
 
 @dataclass
@@ -155,6 +191,7 @@ class LimitOrderRecommendation:
     risk_reward_ratio: float = 0.0
     expected_return: float = 0.0  # Percentage
     timeframe: str = "short-term"  # "short-term", "medium-term", "long-term"
+    recommendation_type: str = "ENTRY"  # "ENTRY" (at support/below current) or "BREAKOUT" (above resistance)
     
     def __post_init__(self):
         if self.order_type == "BUY":
@@ -186,6 +223,8 @@ class TechnicalAnalysisResult:
     overall_signal: str = "HOLD"  # "BUY", "SELL", "HOLD"
     signal_strength: float = 0.0  # 0-100
     analysis_summary: str = ""
+    # Fix #2: Dynamic trendline support/resistance
+    dynamic_trendlines: List['DynamicTrendline'] = field(default_factory=list)
 
 
 # =============================================================================
@@ -451,13 +490,13 @@ class TechnicalIndicatorCalculator:
 class SupportResistanceDetector:
     """Detect support and resistance levels from price data"""
     
-    def __init__(self, df: pd.DataFrame, lookback: int = 60):
+    def __init__(self, df: pd.DataFrame, lookback: int = 250):
         """
         Initialize detector
         
         Args:
             df: OHLCV DataFrame
-            lookback: Number of periods to analyze
+            lookback: Number of periods to analyze (default 250 = ~1 year for daily data)
         """
         self.df = df.copy()
         self.df.columns = self.df.columns.str.lower()
@@ -481,13 +520,22 @@ class SupportResistanceDetector:
         data = self.df.tail(self.lookback)
         current_price = data['close'].iloc[-1]
         
-        # Find pivot points (local highs and lows) with smaller window for volatile stocks
+        # Find pivot points (local highs and lows) with multiple windows for different timeframes
+        # Small window (3) for short-term levels
         pivots_high = self._find_pivot_points(data, 'high', is_high=True, window=3)
         pivots_low = self._find_pivot_points(data, 'low', is_high=False, window=3)
         
-        # Also try larger window for major levels
+        # Medium window (5) for intermediate levels
         pivots_high += self._find_pivot_points(data, 'high', is_high=True, window=5)
         pivots_low += self._find_pivot_points(data, 'low', is_high=False, window=5)
+        
+        # Large window (10) for major historical levels (crash/peak detection)
+        pivots_high += self._find_pivot_points(data, 'high', is_high=True, window=10)
+        pivots_low += self._find_pivot_points(data, 'low', is_high=False, window=10)
+        
+        # Extra large window (20) for very significant historical turning points
+        pivots_high += self._find_pivot_points(data, 'high', is_high=True, window=20)
+        pivots_low += self._find_pivot_points(data, 'low', is_high=False, window=20)
         
         # Cluster nearby pivots with wider tolerance for volatile stocks
         resistance_clusters = self._cluster_levels(pivots_high, current_price, tolerance_pct=3.0)
@@ -808,14 +856,15 @@ class ChartPatternDetector:
     
     def _detect_trendlines(self):
         """Detect ascending and descending trendlines connecting lows/highs"""
-        data = self.df.tail(60)
+        # Use more data for longer-term trendlines (3-6 months)
+        data = self.df.tail(130)  # ~6 months of daily data
         if len(data) < 20:
             return
         
         close = data['close'].iloc[-1]
         
-        # Find significant lows and highs
-        peaks, troughs = self._find_peaks_troughs(data, window=3)
+        # Find significant lows and highs with larger window for cleaner pivots
+        peaks, troughs = self._find_peaks_troughs(data, window=5)
         
         # === ASCENDING SUPPORT TRENDLINE ===
         if len(troughs) >= 2:
@@ -829,6 +878,11 @@ class ChartPatternDetector:
                     if price2 > price1 and idx2 - idx1 >= 15:
                         # Calculate slope (price per bar)
                         slope = (price2 - price1) / (idx2 - idx1)
+                        
+                        # Slope sanity check: max ~2% per day is unrealistic
+                        max_slope_pct = 0.02 * ((price1 + price2) / 2)
+                        if abs(slope) > max_slope_pct:
+                            continue  # Skip unrealistically steep slopes
                         
                         # Check if other troughs are near this trendline
                         touches = 2  # Already have 2 points
@@ -844,6 +898,11 @@ class ChartPatternDetector:
                             # Project to current bar
                             bars_since = len(data) - 1 - idx1
                             projected_support = price1 + slope * bars_since
+                            
+                            # Sanity check: projection must be positive and reasonable
+                            if projected_support <= 0 or projected_support < price1 * 0.5:
+                                continue  # Skip invalid projections
+                            
                             daily_slope = slope
                             
                             pattern = ChartPattern(
@@ -854,7 +913,13 @@ class ChartPatternDetector:
                                 target_price=projected_support,
                                 breakout_level=projected_support,
                                 description=f"Ascending support: ${price1:.2f} → ${price2:.2f}, slope ${daily_slope:.3f}/day, current support ~${projected_support:.2f}",
-                                is_confirmed=close > projected_support
+                                is_confirmed=close > projected_support,
+                                trendline_slope=daily_slope,
+                                trendline_anchor_price=price1,
+                                trendline_anchor_date=data.index[idx1],
+                                trendline_second_price=price2,
+                                trendline_second_date=data.index[idx2],
+                                projected_current_level=projected_support
                             )
                             self.patterns.append(pattern)
                             break
@@ -862,16 +927,23 @@ class ChartPatternDetector:
                     continue
                 break
         
-        # === DESCENDING RESISTANCE TRENDLINE ===
+        # === ASCENDING RESISTANCE TRENDLINE ===
+        # Resistance is the upper boundary that price pushes against but struggles to break above
+        # We look for peaks that are ascending (higher highs over time)
         if len(peaks) >= 2:
             for i in range(len(peaks)):
                 for j in range(i + 1, len(peaks)):
                     idx1, price1 = peaks[i]
                     idx2, price2 = peaks[j]
                     
-                    # Must be descending and at least 15 bars apart
-                    if price2 < price1 and idx2 - idx1 >= 15:
+                    # Must be ASCENDING (higher highs) and at least 15 bars apart
+                    if price2 > price1 and idx2 - idx1 >= 15:
                         slope = (price2 - price1) / (idx2 - idx1)
+                        
+                        # Slope sanity check: max ~2% per day is unrealistic
+                        max_slope_pct = 0.02 * ((price1 + price2) / 2)
+                        if abs(slope) > max_slope_pct:
+                            continue  # Skip unrealistically steep slopes
                         
                         touches = 2
                         for k in range(len(peaks)):
@@ -886,15 +958,27 @@ class ChartPatternDetector:
                             bars_since = len(data) - 1 - idx1
                             projected_resistance = price1 + slope * bars_since
                             
+                            # Sanity check: projection must be positive and reasonable
+                            if projected_resistance <= 0 or projected_resistance > price2 * 2:
+                                continue  # Skip invalid projections
+                            
+                            daily_slope = slope
+                            
                             pattern = ChartPattern(
-                                pattern_type=PatternType.DESCENDING_TRENDLINE,
+                                pattern_type=PatternType.ASCENDING_RESISTANCE,
                                 confidence=min(50 + touches * 10, 85),
                                 start_date=data.index[idx1],
                                 end_date=data.index[idx2],
                                 target_price=projected_resistance,
                                 breakout_level=projected_resistance,
-                                description=f"Descending resistance: ${price1:.2f} → ${price2:.2f}, slope ${slope:.3f}/day, current resistance ~${projected_resistance:.2f}",
-                                is_confirmed=close < projected_resistance
+                                description=f"Ascending resistance: ${price1:.2f} → ${price2:.2f}, slope ${daily_slope:.3f}/day, current resistance ~${projected_resistance:.2f}",
+                                is_confirmed=close < projected_resistance,
+                                trendline_slope=daily_slope,
+                                trendline_anchor_price=price1,
+                                trendline_anchor_date=data.index[idx1],
+                                trendline_second_price=price2,
+                                trendline_second_date=data.index[idx2],
+                                projected_current_level=projected_resistance
                             )
                             self.patterns.append(pattern)
                             break
@@ -1227,6 +1311,82 @@ class ChartPatternDetector:
                         description="Bearish engulfing candle pattern",
                     )
                     self.patterns.append(pattern)
+    
+    def get_dynamic_trendlines(self, current_date: Optional[datetime] = None) -> List[DynamicTrendline]:
+        """
+        Extract DynamicTrendline objects from detected trendline patterns.
+        
+        Args:
+            current_date: Date to project trendlines to (defaults to now)
+            
+        Returns:
+            List of DynamicTrendline objects for dynamic support/resistance tracking
+        """
+        import pandas as pd
+        
+        if current_date is None:
+            current_date = pd.Timestamp.now()
+            
+        dynamic_trendlines = []
+        
+        for pattern in self.patterns:
+            # Only process patterns that have trendline data
+            if pattern.trendline_slope is None or pattern.trendline_anchor_price is None:
+                continue
+                
+            # Determine if support or resistance based on pattern type
+            if pattern.pattern_type == PatternType.ASCENDING_TRENDLINE:
+                trendline_type = "support"
+            elif pattern.pattern_type == PatternType.DESCENDING_TRENDLINE:
+                trendline_type = "resistance"
+            elif pattern.pattern_type == PatternType.ASCENDING_RESISTANCE:
+                trendline_type = "resistance"
+            else:
+                continue  # Skip non-trendline patterns
+            
+            # Use the pattern's pre-calculated projection (relative to data's last bar)
+            # This is more accurate than projecting to today's date
+            current_level = pattern.projected_current_level or pattern.target_price or 0.0
+            
+            # Calculate days since anchor for reference
+            days_elapsed = 0
+            if pattern.trendline_anchor_date:
+                anchor_ts = pd.Timestamp(pattern.trendline_anchor_date)
+                current_ts = pd.Timestamp(current_date)
+                if anchor_ts.tz is not None:
+                    anchor_ts = anchor_ts.tz_localize(None)
+                if current_ts.tz is not None:
+                    current_ts = current_ts.tz_localize(None)
+                days_elapsed = (current_ts - anchor_ts).days
+            
+            # Determine if trendline is intact
+            # For support: price should be above the line
+            # For resistance: price should be below the line
+            is_intact = pattern.is_confirmed
+            
+            # Estimate touches from confidence (50 + touches * 10)
+            touches = max(2, int((pattern.confidence - 50) / 10))
+            
+            # Get second point data (use end_date as fallback)
+            second_price = pattern.trendline_second_price or pattern.target_price or 0.0
+            second_date = pattern.trendline_second_date or pattern.end_date or pattern.start_date
+            
+            trendline = DynamicTrendline(
+                trendline_type=trendline_type,
+                slope=pattern.trendline_slope,
+                anchor_price=pattern.trendline_anchor_price,
+                anchor_date=pattern.trendline_anchor_date or pattern.start_date,
+                second_price=second_price,
+                second_date=second_date,
+                current_level=current_level,
+                touches=touches,
+                confidence=pattern.confidence,
+                is_intact=is_intact,
+                days_since_anchor=days_elapsed
+            )
+            dynamic_trendlines.append(trendline)
+        
+        return dynamic_trendlines
 
 
 # =============================================================================
@@ -1564,7 +1724,7 @@ class LimitOrderRecommender:
         buy_recs = []
         sell_recs = []
         
-        # 1. Support-based buy orders
+        # 1. Support-based buy orders (ENTRY type - below current price)
         for support in self.support_levels[:3]:
             if support.price < self.current_price:
                 distance_pct = (self.current_price - support.price) / self.current_price * 100
@@ -1589,11 +1749,12 @@ class LimitOrderRecommender:
                         stop_loss=stop,
                         probability=probability,
                         reasoning=f"Buy at {support} - historically strong support with {support.touches} touches",
-                        timeframe="short-term"
+                        timeframe="short-term",
+                        recommendation_type="ENTRY"  # Below current price
                     )
                     buy_recs.append(rec)
         
-        # 2. Resistance-based sell orders
+        # 2. Resistance-based sell orders (ENTRY type - above current for shorts)
         for resistance in self.resistance_levels[:3]:
             if resistance.price > self.current_price:
                 distance_pct = (resistance.price - self.current_price) / self.current_price * 100
@@ -1617,7 +1778,8 @@ class LimitOrderRecommender:
                         stop_loss=stop,
                         probability=probability,
                         reasoning=f"Sell at {resistance} - historically strong resistance with {resistance.touches} touches",
-                        timeframe="short-term"
+                        timeframe="short-term",
+                        recommendation_type="ENTRY"  # Short entry at resistance
                     )
                     sell_recs.append(rec)
         
@@ -1648,9 +1810,14 @@ class LimitOrderRecommender:
                     target = max(pattern.target_price, entry * 1.05)
                     stop = entry - 2 * self.atr
                     
-                    # Sanity check: entry should be <= current price for a buy
+                    # Determine if this is ENTRY (below current) or BREAKOUT (above current)
+                    is_breakout = entry > self.current_price
+                    rec_type = "BREAKOUT" if is_breakout else "ENTRY"
+                    
+                    # Sanity check: for ENTRY, entry should be <= current price
                     if entry > self.current_price * 1.1:
                         entry = self.current_price * 0.98
+                        rec_type = "ENTRY"
                     
                     rec = LimitOrderRecommendation(
                         order_type="BUY",
@@ -1659,7 +1826,8 @@ class LimitOrderRecommender:
                         stop_loss=stop,
                         probability=pattern.confidence,
                         reasoning=f"{pattern.pattern_type.value.replace('_', ' ').title()}: {pattern.description}",
-                        timeframe="medium-term"
+                        timeframe="medium-term",
+                        recommendation_type=rec_type
                     )
                     buy_recs.append(rec)
                     
@@ -1670,9 +1838,14 @@ class LimitOrderRecommender:
                     target = min(pattern.target_price, entry * 0.95)
                     stop = entry + 2 * self.atr
                     
-                    # Sanity check: entry should be >= current price for a sell
+                    # Determine if this is ENTRY (above current) or BREAKDOWN (below current)
+                    is_breakdown = entry < self.current_price
+                    rec_type = "BREAKDOWN" if is_breakdown else "ENTRY"
+                    
+                    # Sanity check: for ENTRY, entry should be >= current price
                     if entry < self.current_price * 0.9:
                         entry = self.current_price * 1.02
+                        rec_type = "ENTRY"
                     
                     rec = LimitOrderRecommendation(
                         order_type="SELL",
@@ -1681,7 +1854,8 @@ class LimitOrderRecommender:
                         stop_loss=stop,
                         probability=pattern.confidence,
                         reasoning=f"{pattern.pattern_type.value.replace('_', ' ').title()}: {pattern.description}",
-                        timeframe="medium-term"
+                        timeframe="medium-term",
+                        recommendation_type=rec_type
                     )
                     sell_recs.append(rec)
         
@@ -1699,7 +1873,8 @@ class LimitOrderRecommender:
                 stop_loss=stop,
                 probability=60.0,
                 reasoning=f"RSI oversold at {self.indicators.rsi_14:.1f} - potential bounce",
-                timeframe="short-term"
+                timeframe="short-term",
+                recommendation_type="ENTRY"
             )
             buy_recs.append(rec)
         
@@ -1716,7 +1891,8 @@ class LimitOrderRecommender:
                 stop_loss=stop,
                 probability=60.0,
                 reasoning=f"RSI overbought at {self.indicators.rsi_14:.1f} - potential pullback",
-                timeframe="short-term"
+                timeframe="short-term",
+                recommendation_type="ENTRY"
             )
             sell_recs.append(rec)
         
@@ -1734,7 +1910,8 @@ class LimitOrderRecommender:
                 stop_loss=stop,
                 probability=55.0,
                 reasoning="Price near lower Bollinger Band - mean reversion opportunity",
-                timeframe="short-term"
+                timeframe="short-term",
+                recommendation_type="ENTRY"
             )
             buy_recs.append(rec)
         
@@ -1751,7 +1928,8 @@ class LimitOrderRecommender:
                 stop_loss=stop,
                 probability=55.0,
                 reasoning="Price near upper Bollinger Band - mean reversion opportunity",
-                timeframe="short-term"
+                timeframe="short-term",
+                recommendation_type="ENTRY"
             )
             sell_recs.append(rec)
         
@@ -1965,9 +2143,9 @@ class TechnicalAnalyzer:
         indicator_calc = TechnicalIndicatorCalculator(self.df)
         indicators = indicator_calc.get_latest_indicators()
         
-        # 2. Detect support/resistance
-        sr_detector = SupportResistanceDetector(self.df)
-        support_levels, resistance_levels = sr_detector.detect_levels()
+        # 2. Detect support/resistance with extended lookback for better calibration
+        sr_detector = SupportResistanceDetector(self.df, lookback=500)  # ~2 years of daily data
+        support_levels, resistance_levels = sr_detector.detect_levels(num_levels=8)
         
         # 3. Detect patterns
         pattern_detector = ChartPatternDetector(self.df)
@@ -1986,6 +2164,9 @@ class TechnicalAnalyzer:
         
         # 4b. Generate multi-timeframe recommendations
         timeframe_recs = recommender.generate_timeframe_recommendations()
+        
+        # 4c. Extract dynamic trendlines for live support/resistance tracking
+        dynamic_trendlines = pattern_detector.get_dynamic_trendlines(timestamp)
         
         # 5. Determine overall signal
         overall_signal, signal_strength = self._determine_overall_signal(
@@ -2006,6 +2187,7 @@ class TechnicalAnalyzer:
             buy_recommendations=buy_recs,
             sell_recommendations=sell_recs,
             timeframe_recommendations=timeframe_recs,
+            dynamic_trendlines=dynamic_trendlines,
             overall_signal=overall_signal,
             signal_strength=signal_strength,
             analysis_summary=summary
