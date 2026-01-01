@@ -78,10 +78,13 @@ def test_qbts_trade():
         
         quantity = 10  # Small test order
         
-        # Use market order for simplicity
+        # Use market order with GTC (Good Till Cancelled)
+        # GTC orders persist even when market is closed
         order = MarketOrder('BUY', quantity)
+        order.tif = 'GTC'  # Good Till Cancelled (persists after market close)
+        order.outsideRth = True  # Allow outside regular trading hours
         
-        print(f"\n📝 Submitting order: BUY {quantity} QBTS @ MARKET")
+        print(f"\n📝 Submitting order: BUY {quantity} QBTS @ MARKET (GTC)")
         
         # Place the order
         trade = ib.placeOrder(qbts, order)
