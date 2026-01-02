@@ -279,11 +279,12 @@ def render_trading_panel(symbol: str, current_price: float):
                 st.session_state.ibkr_client = None
             
             client = st.session_state.ibkr_client
-            if client and client.is_connected():
+            if client and client.connected:  # Use .connected property, not .is_connected()
                 ibkr_connected = True
-                account_info = client.get_account_summary()
-                positions = client.get_positions()
-                open_orders = client.get_open_orders()
+                # Use the correct API methods
+                account_info = client.account.get_summary()
+                positions = client.account.positions
+                open_orders = client.orders.get_open_orders() if hasattr(client.orders, 'get_open_orders') else []
         except Exception as e:
             pass  # IBKR not connected
     
@@ -311,9 +312,9 @@ def render_trading_panel(symbol: str, current_price: float):
     
     with account_col:
         if account_info:
-            net_liq = account_info.get('NetLiquidation', 0)
-            available = account_info.get('AvailableFunds', 0)
-            daily_pnl = account_info.get('UnrealizedPnL', 0)
+            net_liq = account_info.get('net_liquidation', 0)
+            available = account_info.get('available_funds', 0)
+            daily_pnl = 0  # Not tracked in current implementation
             
             st.markdown(f"""
             <div style="background: #1a1a2e; border-radius: 8px; padding: 15px;">
@@ -327,8 +328,8 @@ def render_trading_panel(symbol: str, current_price: float):
                         <span style="color: #00C853; font-size: 20px; font-weight: bold;">${available:,.2f}</span>
                     </div>
                     <div style="text-align: center;">
-                        <span style="color: #888; font-size: 11px;">DAILY P&L</span><br>
-                        <span style="color: {'#00C853' if daily_pnl >= 0 else '#FF1744'}; font-size: 20px; font-weight: bold;">${daily_pnl:+,.2f}</span>
+                        <span style="color: #888; font-size: 11px;">CASH</span><br>
+                        <span style="color: #FFC107; font-size: 20px; font-weight: bold;">${account_info.get('cash', 0):,.2f}</span>
                     </div>
                 </div>
             </div>
@@ -407,12 +408,12 @@ def render_trading_panel(symbol: str, current_price: float):
             st.markdown("**📊 Positions**")
             if positions:
                 for pos in positions[:5]:
-                    pnl_color = "#00C853" if pos.get('unrealizedPnL', 0) >= 0 else "#FF1744"
+                    pnl_color = "#00C853" if pos.unrealized_pnl >= 0 else "#FF1744"
                     st.markdown(f"""
                     <div style="background: #1a1a2e; border-radius: 5px; padding: 8px; margin: 3px 0;">
-                        <span style="color: #fff;">{pos.get('symbol', 'N/A')}</span>
-                        <span style="color: #888; margin-left: 10px;">{pos.get('position', 0)} shares</span>
-                        <span style="color: {pnl_color}; float: right;">${pos.get('unrealizedPnL', 0):+.2f}</span>
+                        <span style="color: #fff;">{pos.symbol}</span>
+                        <span style="color: #888; margin-left: 10px;">{int(pos.quantity)} shares @ ${pos.avg_cost:.2f}</span>
+                        <span style="color: {pnl_color}; float: right;">${pos.unrealized_pnl:+.2f}</span>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -422,12 +423,12 @@ def render_trading_panel(symbol: str, current_price: float):
             st.markdown("**📝 Open Orders**")
             if open_orders:
                 for order in open_orders[:5]:
-                    side_color = "#00C853" if order.get('action') == 'BUY' else "#FF1744"
+                    side_color = "#00C853" if order.side == 'BUY' else "#FF1744"
                     st.markdown(f"""
                     <div style="background: #1a1a2e; border-radius: 5px; padding: 8px; margin: 3px 0;">
-                        <span style="color: {side_color};">{order.get('action', 'N/A')}</span>
-                        <span style="color: #fff; margin-left: 5px;">{order.get('totalQuantity', 0)} {order.get('symbol', 'N/A')}</span>
-                        <span style="color: #888; float: right;">@ ${order.get('lmtPrice', 0):.2f}</span>
+                        <span style="color: {side_color};">{order.side}</span>
+                        <span style="color: #fff; margin-left: 5px;">{order.quantity} {order.symbol}</span>
+                        <span style="color: #888; float: right;">@ ${order.limit_price or 0:.2f}</span>
                     </div>
                     """, unsafe_allow_html=True)
             else:
