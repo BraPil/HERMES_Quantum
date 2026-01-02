@@ -188,6 +188,11 @@ class IBKRConnection:
             accounts = self.ib.managedAccounts()
             logger.info(f"Managed accounts: {accounts}")
             
+            # Request account summary (required for accountSummary() to return data)
+            self.ib.reqAccountSummary()
+            self.ib.sleep(1)  # Wait for data to arrive
+            logger.info("📊 Account data subscribed")
+            
             return True
             
         except Exception as e:

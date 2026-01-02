@@ -387,16 +387,30 @@ def render_trading_panel(symbol: str, current_price: float):
     with trade_col3:
         if st.button("🟢 BUY", use_container_width=True, type="primary"):
             if ibkr_connected:
-                st.info(f"Would place: BUY {shares} {symbol} @ LIMIT ${current_price:.2f}")
-                # TODO: Execute via IBKR
+                try:
+                    client = st.session_state.ibkr_client
+                    result = client.buy(symbol, shares, limit_price=current_price)
+                    if result.status in ['Submitted', 'PreSubmitted', 'Filled']:
+                        st.success(f"✅ BUY {shares} {symbol} @ ${current_price:.2f} - {result.status}")
+                    else:
+                        st.warning(f"Order status: {result.status} - {result.message}")
+                except Exception as e:
+                    st.error(f"Order failed: {e}")
             else:
                 st.warning("Connect to IBKR first")
     
     with trade_col4:
         if st.button("🔴 SELL", use_container_width=True):
             if ibkr_connected:
-                st.info(f"Would place: SELL {shares} {symbol} @ LIMIT ${current_price:.2f}")
-                # TODO: Execute via IBKR
+                try:
+                    client = st.session_state.ibkr_client
+                    result = client.sell(symbol, shares, limit_price=current_price)
+                    if result.status in ['Submitted', 'PreSubmitted', 'Filled']:
+                        st.success(f"✅ SELL {shares} {symbol} @ ${current_price:.2f} - {result.status}")
+                    else:
+                        st.warning(f"Order status: {result.status} - {result.message}")
+                except Exception as e:
+                    st.error(f"Order failed: {e}")
             else:
                 st.warning("Connect to IBKR first")
     
