@@ -261,11 +261,23 @@ def check_cross_symbol_alerts(watchlist: list) -> list:
 # IBKR Trading Panel - Account & Execution
 # ============================================================================
 
+def ensure_event_loop():
+    """Ensure an event loop exists in the current thread (required for ib_insync)"""
+    import asyncio
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
 def render_trading_panel(symbol: str, current_price: float):
     """
     Render the IBKR trading panel at the top of the dashboard.
     Shows account status, positions, and quick trade buttons.
     """
+    # Ensure event loop for ib_insync operations
+    ensure_event_loop()
+    
     # Check if we're connected to IBKR
     ibkr_connected = False
     account_info = None
@@ -281,12 +293,18 @@ def render_trading_panel(symbol: str, current_price: float):
             client = st.session_state.ibkr_client
             if client and client.connected:  # Use .connected property, not .is_connected()
                 ibkr_connected = True
+                # Refresh account subscription if needed
+                try:
+                    client.connection.ib.sleep(0.1)  # Process pending messages
+                except:
+                    pass
                 # Use the correct API methods
                 account_info = client.account.get_summary()
                 positions = client.account.positions
                 open_orders = client.orders.get_open_orders() if hasattr(client.orders, 'get_open_orders') else []
         except Exception as e:
-            pass  # IBKR not connected
+            st.session_state.ibkr_client = None  # Reset on error
+            ibkr_connected = False
     
     # Trading Panel Header (no dropdown - always visible)
     st.markdown("### 💹 IBKR TRADING PANEL")
@@ -388,10 +406,13 @@ def render_trading_panel(symbol: str, current_price: float):
         if st.button("🟢 BUY", use_container_width=True, type="primary"):
             if ibkr_connected:
                 try:
+                    ensure_event_loop()  # Required for ib_insync
                     client = st.session_state.ibkr_client
+                    client.connection.ib.sleep(0.1)  # Sync connection
                     result = client.buy(symbol, shares, limit_price=current_price)
                     if result.status in ['Submitted', 'PreSubmitted', 'Filled']:
                         st.success(f"✅ BUY {shares} {symbol} @ ${current_price:.2f} - {result.status}")
+                        st.rerun()  # Refresh to show new order
                     else:
                         st.warning(f"Order status: {result.status} - {result.message}")
                 except Exception as e:
@@ -403,10 +424,13 @@ def render_trading_panel(symbol: str, current_price: float):
         if st.button("🔴 SELL", use_container_width=True):
             if ibkr_connected:
                 try:
+                    ensure_event_loop()  # Required for ib_insync
                     client = st.session_state.ibkr_client
+                    client.connection.ib.sleep(0.1)  # Sync connection
                     result = client.sell(symbol, shares, limit_price=current_price)
                     if result.status in ['Submitted', 'PreSubmitted', 'Filled']:
                         st.success(f"✅ SELL {shares} {symbol} @ ${current_price:.2f} - {result.status}")
+                        st.rerun()  # Refresh to show new order
                     else:
                         st.warning(f"Order status: {result.status} - {result.message}")
                 except Exception as e:
